@@ -9,6 +9,17 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    /* ===== NGU HANH THEME VARIABLES ===== */
+    :root {
+      --c-main:   #2563EB;
+      --c-hover:  #1D4ED8;
+      --c-tint:   #EFF6FF;
+      --c-border: #BFDBFE;
+      --c-medium: #93C5FD;
+      --c-dark:   #1D4ED8;
+      --c-focus:  rgba(37,99,235,0.15);
+    }
+
     *, *::before, *::after { box-sizing: border-box; }
     html, body { font-family: 'Outfit', system-ui, -apple-system, sans-serif; margin: 0; padding: 0; }
 
@@ -449,6 +460,149 @@
     }
     .doc-chip.hoadon  { background: #DBEAFE; color: #1D4ED8; }
     .doc-chip.phieuchi { background: #FEE2E2; color: #DC2626; }
+
+    /* ===== REPLY PREVIEW BAR (inside input-box, above toolbar) ===== */
+    #reply-preview {
+      display: none; align-items: center; gap: 10px;
+      padding: 8px 12px 8px 11px;
+      border-bottom: 1px solid #F0F4F8;
+      border-radius: 12px 12px 0 0;
+      background: #F8FAFC;
+    }
+    #reply-preview.rp-active {
+      display: flex;
+      animation: rp-in 0.18s cubic-bezier(0.16,1,0.3,1);
+    }
+    @keyframes rp-in {
+      from { opacity: 0; transform: translateY(5px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .rp-accent { width: 3px; border-radius: 2px; background: #2563EB; align-self: stretch; min-height: 28px; flex-shrink: 0; }
+    .rp-info { flex: 1; min-width: 0; }
+    .rp-sender-name { font-size: 11.5px; font-weight: 700; color: #2563EB; line-height: 1.4; }
+    .rp-preview-text { font-size: 12px; color: #64748B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
+    .rp-type-icon { display: inline-flex; align-items: center; gap: 4px; }
+    .rp-close {
+      width: 22px; height: 22px; border-radius: 50%; border: none; cursor: pointer;
+      background: #E8EDF2; display: flex; align-items: center; justify-content: center;
+      color: #64748B; flex-shrink: 0; transition: background 0.1s, color 0.1s;
+    }
+    .rp-close:hover { background: #CBD5E1; color: #334155; }
+
+    /* ===== QUOTED BUBBLE in messages ===== */
+    /* "Me" side quote (inside my blue bubble area, right-aligned) */
+    .reply-quote-me {
+      border-left: 2.5px solid rgba(255,255,255,0.55);
+      background: rgba(255,255,255,0.14);
+      border-radius: 8px;
+      padding: 6px 10px;
+      margin-bottom: 7px;
+      cursor: pointer;
+      overflow: hidden;
+      transition: background 0.12s;
+    }
+    .reply-quote-me:hover { background: rgba(255,255,255,0.22); }
+    .reply-quote-me .rq-name { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.9); margin-bottom: 2px; }
+    .reply-quote-me .rq-text { font-size: 12px; color: rgba(255,255,255,0.72); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Others' side quote */
+    .reply-quote-other {
+      border-left: 2.5px solid #93C5FD;
+      background: #EFF6FF;
+      border-radius: 8px;
+      padding: 6px 10px;
+      margin-bottom: 7px;
+      cursor: pointer;
+      overflow: hidden;
+      transition: background 0.12s;
+    }
+    .reply-quote-other:hover { background: #DBEAFE; }
+    .reply-quote-other .rq-name { font-size: 11px; font-weight: 700; color: #2563EB; margin-bottom: 2px; }
+    .reply-quote-other .rq-text { font-size: 12px; color: #3B82F6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Scroll-to highlight */
+    .msg-highlight { animation: msg-hl 1.5s ease forwards; }
+    @keyframes msg-hl {
+      0%   { background: transparent; }
+      15%  { background: #EFF6FF; }
+      75%  { background: #EFF6FF; }
+      100% { background: transparent; }
+    }
+
+    /* Reply action button hover accent */
+    .msg-action-btn[data-action="reply"]:hover { color: #2563EB; }
+
+    /* ===== NGU HANH THEME OVERRIDES (all use CSS variables) ===== */
+    /* My message bubble */
+    .msg-me-bubble { background: var(--c-main) !important; }
+    /* Send button */
+    #send-btn { background: var(--c-main) !important; }
+    #send-btn:hover { background: var(--c-hover) !important; }
+    /* Active conversation */
+    .dm-active { background: var(--c-tint) !important; }
+    /* Filter tab */
+    .filter-tab.active { background: var(--c-tint) !important; color: var(--c-main) !important; }
+    /* Step pill (S3/S4) */
+    .lp-step-pill { background: var(--c-tint) !important; color: var(--c-main) !important; }
+    /* Group buttons */
+    .lp-grp-btn { background: var(--c-main) !important; }
+    .lp-grp-btn:hover { background: var(--c-hover) !important; }
+    .lp-gm-next { background: var(--c-main) !important; }
+    .lp-gm-next:hover { background: var(--c-hover) !important; }
+    .lp-create-btn { background: var(--c-main) !important; }
+    .lp-create-btn:hover:not(:disabled) { background: var(--c-hover) !important; }
+    /* Group member select */
+    .gm-row.gm-sel { background: var(--c-tint) !important; }
+    .gm-row.gm-sel:hover { background: var(--c-border) !important; }
+    .gm-chk { background: var(--c-main) !important; }
+    /* Member chips */
+    .lp-gc { background: var(--c-tint) !important; border-color: var(--c-border) !important; }
+    .lp-gc > span { color: var(--c-dark) !important; }
+    .lp-gc-x { background: var(--c-border) !important; color: var(--c-dark) !important; }
+    .lp-gc-x:hover { background: var(--c-medium) !important; }
+    /* Input focus */
+    .input-box:focus-within { border-color: var(--c-medium) !important; box-shadow: 0 0 0 3px var(--c-focus) !important; }
+    .search-wrap input:focus { border-color: var(--c-medium) !important; }
+    /* Reactions */
+    .reaction.reacted { background: var(--c-tint) !important; border-color: var(--c-border) !important; }
+    .reaction .count { color: var(--c-main) !important; }
+    /* Right panel action icons */
+    .rp-action-icon { background: var(--c-tint) !important; color: var(--c-main) !important; }
+    .rp-action:hover .rp-action-icon { background: var(--c-border) !important; }
+    /* Reply feature */
+    .rp-accent { background: var(--c-main) !important; }
+    .rp-sender-name { color: var(--c-main) !important; }
+    .reply-quote-other { border-left-color: var(--c-border) !important; }
+    .reply-quote-other .rq-name { color: var(--c-main) !important; }
+    .reply-quote-other .rq-text { color: var(--c-medium) !important; }
+    /* Conv menu open state */
+    .dm-item.menu-open .dm-menu-btn { color: var(--c-main) !important; }
+    /* App logo gradient */
+    .app-logo-icon { background: linear-gradient(135deg, var(--c-main), var(--c-hover)) !important; }
+    /* Msg action reply hover */
+    .msg-action-btn[data-action="reply"]:hover { color: var(--c-main) !important; }
+
+    /* ===== NGU HANH THEME SWITCHER ===== */
+    .ngu-hanh-picker {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 14px 6px;
+      border-top: 1px solid #F1F5F9;
+    }
+    .ngu-hanh-label {
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em;
+      color: #CBD5E1; text-transform: uppercase; flex-shrink: 0;
+    }
+    .ngu-hanh-dots { display: flex; align-items: center; gap: 5px; }
+    .nh-dot {
+      width: 14px; height: 14px; border-radius: 50%; border: 2px solid transparent;
+      cursor: pointer; transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s;
+      outline: none; flex-shrink: 0;
+    }
+    .nh-dot:hover { transform: scale(1.25); }
+    .nh-dot.nh-active {
+      transform: scale(1.1);
+      box-shadow: 0 0 0 2px white, 0 0 0 3.5px var(--c-main);
+    }
   </style>
 </head>
 <body class="min-h-screen flex items-center justify-center" style="background: linear-gradient(135deg, #CBD5E1, #94A3B8);">
@@ -484,7 +638,7 @@
         <!-- App Header -->
         <div class="px-4 pt-4 pb-3 flex items-center justify-between" style="border-bottom: 1px solid #F1F5F9;">
           <div class="flex items-center gap-2.5">
-            <div class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+            <div class="app-logo-icon w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
               style="background: linear-gradient(135deg, #2563EB, #1D4ED8);">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="white" fill-opacity="0.95">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -527,10 +681,22 @@
         <!-- Conversation List (rendered by JS) -->
         <div id="lp-conv-list" class="flex-1 overflow-y-auto thin-scroll px-2 pb-2 space-y-0.5"></div>
 
+        <!-- Ngu Hanh Theme Picker -->
+        <div class="ngu-hanh-picker">
+          <span class="ngu-hanh-label">Ngu hanh</span>
+          <div class="ngu-hanh-dots">
+            <button class="nh-dot nh-active" data-theme="kim" onclick="applyTheme('kim')" title="Kim - Xanh duong" style="background:#2563EB;"></button>
+            <button class="nh-dot" data-theme="moc" onclick="applyTheme('moc')" title="Moc - Xanh la" style="background:#16A34A;"></button>
+            <button class="nh-dot" data-theme="thuy" onclick="applyTheme('thuy')" title="Thuy - Vang" style="background:#B45309;"></button>
+            <button class="nh-dot" data-theme="hoa" onclick="applyTheme('hoa')" title="Hoa - Do" style="background:#DC2626;"></button>
+            <button class="nh-dot" data-theme="tho" onclick="applyTheme('tho')" title="Tho - Nau" style="background:#7B4F24;"></button>
+          </div>
+        </div>
+
         <!-- User Profile -->
         <div class="px-3 py-3 flex items-center gap-2.5" style="border-top: 1px solid #E2E8F0;">
           <div class="relative flex-shrink-0">
-            <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold" style="background: #2563EB;">MH</div>
+            <div id="user-avatar" class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold" style="background: #2563EB;">MH</div>
             <div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full status-online" style="border: 2px solid white;"></div>
           </div>
           <div class="flex-1 min-w-0">
@@ -703,12 +869,6 @@
             <button class="tb-btn" style="width:32px;height:32px;" title="Search">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             </button>
-            <button class="tb-btn" style="width:32px;height:32px;" title="Voice call">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9a16 16 0 0 0 6 6l1.15-1.15a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-            </button>
-            <button class="tb-btn" style="width:32px;height:32px;" title="Video call">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-            </button>
             <!-- Toggle right panel -->
             <button id="toggle-rp-btn" onclick="toggleRightPanel()" style="width:32px;height:32px;" title="Contact info" class="tb-btn" style="color: #2563EB;">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -732,7 +892,7 @@
           <div class="date-sep">Today</div>
 
           <!-- MSG 1: Linh (start) -->
-          <div class="message-group px-2 py-2 -mx-2" style="margin-bottom: 2px;">
+          <div class="message-group px-2 py-2 -mx-2" data-msg-id="msg-1" style="margin-bottom: 2px;">
             <div class="msg-actions">
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
@@ -751,7 +911,7 @@
           </div>
 
           <!-- MSG 2: Linh (consecutive) -->
-          <div class="message-group px-2 py-1 -mx-2" style="margin-bottom: 6px;">
+          <div class="message-group px-2 py-1 -mx-2" data-msg-id="msg-2" style="margin-bottom: 6px;">
             <div class="msg-actions">
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
@@ -764,7 +924,7 @@
           </div>
 
           <!-- MSG 3: Minh (me) - right bubble -->
-          <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom: 2px; margin-top: 10px;">
+          <div class="message-group msg-me-wrap px-2 py-2 -mx-2" data-msg-id="msg-3" style="margin-bottom: 2px; margin-top: 10px;">
             <div class="msg-actions">
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
@@ -779,7 +939,7 @@
           </div>
 
           <!-- MSG 4: Minh (consecutive + code) - right aligned -->
-          <div class="message-group msg-me-wrap px-2 py-1.5 -mx-2" style="margin-bottom: 6px;">
+          <div class="message-group msg-me-wrap px-2 py-1.5 -mx-2" data-msg-id="msg-4" style="margin-bottom: 6px;">
             <div class="msg-actions">
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
@@ -807,7 +967,7 @@
           </div>
 
           <!-- MSG 5: Linh + image -->
-          <div class="message-group px-2 py-2 -mx-2" style="margin-bottom: 2px; margin-top: 10px;">
+          <div class="message-group px-2 py-2 -mx-2" data-msg-id="msg-5" style="margin-bottom: 2px; margin-top: 10px;">
             <div class="msg-actions">
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
@@ -829,7 +989,7 @@
           </div>
 
           <!-- MSG 6: Linh + file -->
-          <div class="message-group px-2 py-1.5 -mx-2" style="margin-bottom: 6px;">
+          <div class="message-group px-2 py-1.5 -mx-2" data-msg-id="msg-6" style="margin-bottom: 6px;">
             <div class="msg-actions">
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
@@ -857,7 +1017,7 @@
           </div>
 
           <!-- MSG 7: Minh - right bubble -->
-          <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom: 2px; margin-top: 10px;">
+          <div class="message-group msg-me-wrap px-2 py-2 -mx-2" data-msg-id="msg-7" style="margin-bottom: 2px; margin-top: 10px;">
             <div class="msg-actions">
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
@@ -872,7 +1032,7 @@
           </div>
 
           <!-- MSG 8: Linh + reactions -->
-          <div class="message-group px-2 py-2 -mx-2" style="margin-bottom: 6px; margin-top: 10px;">
+          <div class="message-group px-2 py-2 -mx-2" data-msg-id="msg-8" style="margin-bottom: 6px; margin-top: 10px;">
             <div class="msg-actions">
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
@@ -901,6 +1061,50 @@
             </div>
           </div>
 
+          <!-- MSG 9: Minh replies to Linh's first message -->
+          <div class="message-group msg-me-wrap px-2 py-2 -mx-2" data-msg-id="msg-9" style="margin-bottom: 2px; margin-top: 10px;">
+            <div class="msg-actions">
+              <button class="msg-action-btn" title="React"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
+              <button class="msg-action-btn" data-action="reply" title="Reply"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
+              <button class="msg-action-btn" title="More"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+            </div>
+            <div style="display:flex;justify-content:flex-end;">
+              <div style="max-width:72%;">
+                <div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">9:56 AM</span></div>
+                <div class="msg-me-bubble">
+                  <div class="reply-quote-me" onclick="scrollToMsg('msg-1')">
+                    <div class="rq-name">Linh Tran</div>
+                    <div class="rq-text">Hey Minh! Quick question about the design system we talked about last week.</div>
+                  </div>
+                  Of course! Design system docs are in Notion - sharing the link now.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- MSG 10: Linh replies to Minh's msg-7 -->
+          <div class="message-group px-2 py-2 -mx-2" data-msg-id="msg-10" style="margin-bottom: 6px; margin-top: 10px;">
+            <div class="msg-actions">
+              <button class="msg-action-btn" title="React"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
+              <button class="msg-action-btn" data-action="reply" title="Reply"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
+              <button class="msg-action-btn" title="More"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+            </div>
+            <div class="flex gap-3">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background: #059669;">LT</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2 mb-1">
+                  <span class="font-semibold text-slate-900" style="font-size: 13.5px;">Linh Tran</span>
+                  <span class="text-slate-400" style="font-size: 11px;">9:58 AM</span>
+                </div>
+                <div class="reply-quote-other" onclick="scrollToMsg('msg-7')">
+                  <div class="rq-name">You</div>
+                  <div class="rq-text">Looks great! The hierarchy reads much cleaner. Let's lock this in as the reference for the full component library review next sprint.</div>
+                </div>
+                <p class="text-slate-700 leading-relaxed" style="font-size: 13.5px;">Storybook docs are updated too - all interaction states are in now. Ready for sprint review!</p>
+              </div>
+            </div>
+          </div>
+
           <!-- Typing indicator -->
           <div id="typing-indicator" class="flex items-center gap-3 px-2 py-2 -mx-2" style="margin-top: 8px;">
             <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0" style="background: #059669;">LT</div>
@@ -919,6 +1123,17 @@
         <!-- Input Area -->
         <div class="flex-shrink-0 px-4 py-3" style="border-top: 1px solid #F1F5F9;">
           <div class="input-box">
+            <!-- Reply preview bar (hidden by default, shown when replying) -->
+            <div id="reply-preview" aria-label="Replying to message">
+              <div class="rp-accent"></div>
+              <div class="rp-info">
+                <div class="rp-sender-name" id="rp-sender-name"></div>
+                <div class="rp-preview-text" id="rp-preview-text"></div>
+              </div>
+              <button class="rp-close" onclick="cancelReply()" title="Cancel reply" aria-label="Cancel reply">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
             <!-- Formatting toolbar -->
             <div class="flex items-center gap-0.5 px-3 pt-2.5 pb-2" style="border-bottom: 1px solid #F8FAFC;">
               <button class="tb-btn" title="Bold"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg></button>
@@ -942,9 +1157,8 @@
                 <button class="tb-btn" title="Emoji"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
                 <button class="tb-btn" title="Mention"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg></button>
               </div>
-              <button onclick="sendMessage()" title="Send (Enter)"
-                style="width:32px;height:32px;background:#2563EB;border-radius:9px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s,transform 0.1s;flex-shrink:0;"
-                onmouseover="this.style.background='#1D4ED8'" onmouseout="this.style.background='#2563EB'"
+              <button id="send-btn" onclick="sendMessage()" title="Send (Enter)"
+                style="width:32px;height:32px;border-radius:9px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s,transform 0.1s;flex-shrink:0;"
                 onmousedown="this.style.transform='scale(0.92)'" onmouseup="this.style.transform='scale(1)'">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </button>
@@ -1399,8 +1613,10 @@
     }
 
     function updateMessages(conv) {
+      cancelReply();
       messagesEl.innerHTML = CONV_MESSAGES[conv.id] || '<div class="date-sep">Bat dau cuoc tro chuyen</div>';
       messagesEl.scrollTop = messagesEl.scrollHeight;
+      initMsgIds();
     }
 
     function updateInputPlaceholder(conv) {
@@ -1450,7 +1666,7 @@
           <div class="text-slate-400 text-center mt-0.5" style="font-size:12px;">${escapeHtml(conv.role)}</div>
           <div class="flex items-center gap-1.5 mt-1">${statusText}</div>
           <div class="flex items-center gap-1 mt-5 w-full">
-            ${rpAction(ICO.phone,'Goi')}${rpAction(ICO.video,'Video')}${rpAction(ICO.bell,'Tat thong bao')}${rpAction(ICO.more,'Khac')}
+            ${rpAction(ICO.bell,'Tat thong bao')}${rpAction(ICO.more,'Khac')}
           </div>
         </div>
         <div class="rp-section">
@@ -1610,12 +1826,50 @@
       const rp = document.getElementById('right-panel');
       const btn = document.getElementById('toggle-rp-btn');
       rpOpen = !rpOpen;
+      const mainColor = getComputedStyle(document.documentElement).getPropertyValue('--c-main').trim();
       if (rpOpen) {
         rp.classList.remove('collapsed');
-        btn.style.color = '#2563EB';
+        btn.style.color = mainColor;
       } else {
         rp.classList.add('collapsed');
         btn.style.color = '#94A3B8';
+      }
+    }
+
+    // ===== NGU HANH THEME SYSTEM =====
+    const THEMES = {
+      kim:  { main:'#2563EB', hover:'#1D4ED8', tint:'#EFF6FF', border:'#BFDBFE', medium:'#93C5FD', dark:'#1D4ED8', focus:'rgba(37,99,235,0.15)'  },
+      moc:  { main:'#16A34A', hover:'#15803D', tint:'#F0FDF4', border:'#BBF7D0', medium:'#86EFAC', dark:'#15803D', focus:'rgba(22,163,74,0.15)'   },
+      thuy: { main:'#B45309', hover:'#92400E', tint:'#FFFBEB', border:'#FDE68A', medium:'#FCD34D', dark:'#92400E', focus:'rgba(180,83,9,0.15)'    },
+      hoa:  { main:'#DC2626', hover:'#B91C1C', tint:'#FEF2F2', border:'#FECACA', medium:'#FCA5A5', dark:'#B91C1C', focus:'rgba(220,38,38,0.15)'   },
+      tho:  { main:'#7B4F24', hover:'#5C3A1A', tint:'#FDF6EE', border:'#E8C9A8', medium:'#D4A574', dark:'#5C3A1A', focus:'rgba(123,79,36,0.15)'  },
+    };
+
+    function applyTheme(name) {
+      const t = THEMES[name];
+      if (!t) return;
+      const r = document.documentElement;
+      r.style.setProperty('--c-main',   t.main);
+      r.style.setProperty('--c-hover',  t.hover);
+      r.style.setProperty('--c-tint',   t.tint);
+      r.style.setProperty('--c-border', t.border);
+      r.style.setProperty('--c-medium', t.medium);
+      r.style.setProperty('--c-dark',   t.dark);
+      r.style.setProperty('--c-focus',  t.focus);
+
+      // Update active dot indicator
+      document.querySelectorAll('.nh-dot').forEach(d => {
+        d.classList.toggle('nh-active', d.dataset.theme === name);
+      });
+
+      // Update user avatar color
+      const av = document.getElementById('user-avatar');
+      if (av) av.style.background = t.main;
+
+      // Sync toggle-rp-btn if panel is open
+      if (rpOpen) {
+        const btn = document.getElementById('toggle-rp-btn');
+        if (btn) btn.style.color = t.main;
       }
     }
 
@@ -1665,29 +1919,132 @@
       return d.innerHTML;
     }
 
+    // ===== REPLY FEATURE =====
+    let replyTo = null; // { id, senderName, content, type }
+    let _msgCounter = 100;
+
+    function startReply(btn) {
+      const group = btn.closest('.message-group');
+      if (!group) return;
+      const msgId = group.dataset.msgId;
+      const isMe = group.classList.contains('msg-me-wrap');
+      let senderName, content, type = 'text';
+
+      if (isMe) {
+        senderName = 'You';
+        const bubble = group.querySelector('.msg-me-bubble');
+        // Get text content, strip inner quote blocks
+        const clone = bubble ? bubble.cloneNode(true) : null;
+        if (clone) {
+          const inner = clone.querySelector('.reply-quote-me');
+          if (inner) inner.remove();
+          content = clone.innerText.trim();
+        }
+      } else {
+        const nameEl = group.querySelector('.font-semibold.text-slate-900');
+        senderName = nameEl ? nameEl.textContent.trim() : 'Unknown';
+        const textEl = group.querySelector('p.text-slate-700');
+        if (textEl) {
+          content = textEl.innerText.trim();
+        }
+      }
+
+      if (group.querySelector('.img-card')) { type = 'image'; content = 'Photo'; }
+      else if (group.querySelector('.file-card')) {
+        type = 'file';
+        const fn = group.querySelector('.file-card .font-medium');
+        content = fn ? fn.textContent.trim() : 'File attachment';
+      }
+      if (!content) content = '...';
+
+      replyTo = { id: msgId, senderName, content, type };
+
+      // Show preview icon prefix for media types
+      let previewText = content;
+      if (type === 'image') previewText = 'Photo';
+      else if (type === 'file') previewText = content;
+
+      document.getElementById('rp-sender-name').textContent = senderName;
+      document.getElementById('rp-preview-text').textContent = previewText;
+      document.getElementById('reply-preview').classList.add('rp-active');
+      document.getElementById('chat-input').focus();
+    }
+
+    function cancelReply() {
+      replyTo = null;
+      document.getElementById('reply-preview').classList.remove('rp-active');
+    }
+
+    function scrollToMsg(msgId) {
+      const el = document.querySelector(`[data-msg-id="${msgId}"]`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.remove('msg-highlight');
+      void el.offsetWidth; // force reflow to restart animation
+      el.classList.add('msg-highlight');
+      setTimeout(() => el.classList.remove('msg-highlight'), 1600);
+    }
+
+    // Event delegation: reply button clicks anywhere in #messages
+    document.getElementById('messages').addEventListener('click', function(e) {
+      const btn = e.target.closest('[data-action="reply"]');
+      if (btn) { e.stopPropagation(); startReply(btn); }
+    });
+
+    // ESC cancels active reply
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && replyTo) cancelReply();
+    });
+
+    // Assign data-msg-id to static messages that don't have one yet
+    function initMsgIds() {
+      let counter = 1;
+      document.querySelectorAll('#messages .message-group').forEach(g => {
+        if (!g.dataset.msgId) g.dataset.msgId = `msg-${counter}`;
+        counter++;
+        // Wire reply action to the button with arrow-back SVG (2nd btn in 3-btn groups)
+        const btns = g.querySelectorAll('.msg-actions .msg-action-btn');
+        if (btns.length >= 2 && !btns[1].dataset.action) {
+          btns[1].dataset.action = 'reply';
+          btns[1].title = 'Reply';
+        }
+      });
+    }
+    initMsgIds();
+
     function sendMessage() {
       const input = document.getElementById('chat-input');
       const text = input.innerText.trim();
       if (!text) return;
 
+      const msgId = `msg-${_msgCounter++}`;
+      const quoteHtml = replyTo ? `
+        <div class="reply-quote-me" onclick="scrollToMsg('${replyTo.id}')">
+          <div class="rq-name">${escapeHtml(replyTo.senderName)}</div>
+          <div class="rq-text">${escapeHtml(replyTo.content)}</div>
+        </div>` : '';
+
       const msgEl = document.createElement('div');
       msgEl.className = 'message-group msg-me-wrap px-2 py-2 -mx-2';
+      msgEl.dataset.msgId = msgId;
       msgEl.style.cssText = 'margin-bottom: 2px; margin-top: 10px;';
       msgEl.innerHTML = `
         <div class="msg-actions">
-          <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
-          <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+          <button class="msg-action-btn" title="React"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
+          <button class="msg-action-btn" data-action="reply" title="Reply"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
+          <button class="msg-action-btn" title="More"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
         </div>
         <div style="display:flex;justify-content:flex-end;">
           <div style="max-width:72%;">
             <div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">${getCurrentTime()}</span></div>
-            <div class="msg-me-bubble">${escapeHtml(text)}</div>
+            <div class="msg-me-bubble">${quoteHtml}${escapeHtml(text)}</div>
           </div>
         </div>`;
 
       const typingEl = document.getElementById('typing-indicator');
       messagesEl.insertBefore(msgEl, typingEl);
       input.innerText = '';
+      cancelReply();
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 

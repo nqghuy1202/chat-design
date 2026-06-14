@@ -84,9 +84,27 @@ State variable `_convMenuId` tracks which conversation's menu is open. Menu clos
 
 Chat header → scrollable `#messages` div → input row with formatting toolbar. Messages use a grouped format: the first message in a consecutive sequence from the same sender gets a full row (avatar + name + timestamp); subsequent messages are indented only.
 
+Center panel header has no call or video buttons — those have been removed. Only the search, info/profile toggle, and options buttons remain.
+
+#### Reply feature
+
+Every message div carries `data-msg-id="msg-N"`. On hover, the message action toolbar appears; the 2nd icon (`data-action="reply"`) triggers `startReply(btn)` via event delegation on `#messages`.
+
+Reply state: `replyTo = null | { id, senderName, content, type }`. When set, `#reply-preview` (first child of `.input-box`) gains class `rp-active` and slides in. Pressing Escape or clicking the X calls `cancelReply()`. `sendMessage()` reads `replyTo`, injects a quote block into the bubble, then calls `cancelReply()`.
+
+Quote blocks inside bubbles:
+- `.reply-quote-me` — used inside `.msg-me-bubble` (blue). Background is `rgba(255,255,255,0.14)`, border-left `rgba(255,255,255,0.55)`. Semi-transparent so it works with any theme accent color.
+- `.reply-quote-other` — used in received messages. Light-blue tint (`#EFF6FF` bg, `#93C5FD` border-left, themed via CSS variable).
+
+Clicking either quote block calls `scrollToMsg(id)` which smooth-scrolls to the original message and plays `.msg-highlight` (1.5s fade-in/out background animation, uses reflow trick `void el.offsetWidth` to restart).
+
+`initMsgIds()` assigns `data-msg-id` to all static messages and wires `data-action="reply"` on their action buttons. It must be called at load and after every `updateMessages()`. Both `cancelReply` and `initMsgIds` are function declarations (hoisted) so they can safely be referenced in `updateMessages()` defined earlier in the script.
+
 ### Right Panel
 
 Four collapsible sections toggled with `toggleSection()`. Panel visibility toggled via the profile icon button in the center header (`toggleRightPanel()`).
+
+For DM conversations, the right panel quick-actions row contains only "Tat thong bao" (bell) and "Khac" (more). The Goi (call) and Video buttons have been removed.
 
 ## Data
 
@@ -95,6 +113,8 @@ Four collapsible sections toggled with `toggleSection()`. Panel visibility toggl
 - `NC_CONTACTS` — 24 contacts for the New Conversation flow `{ id (number), name, ini, color, online }`. DM convs in `CONV_DATA` share names with some NC_CONTACTS entries (e.g. 'Linh Tran' → id 12, 'Minh An' → id 15).
 - `grpSel` — `Set` of NC_CONTACTS numeric IDs currently selected in S3.
 - `_convMenuId` — string conv ID of the currently open context menu, or `null`.
+- `replyTo` — `null` or `{ id, senderName, content, type }` — active reply target; read by `sendMessage()`.
+- `_msgCounter` — integer auto-incrementing from 100; used to assign `data-msg-id` to newly sent messages.
 
 ## JS Function Reference
 
@@ -129,11 +149,16 @@ Four collapsible sections toggled with `toggleSection()`. Panel visibility toggl
 | `toggleReaction(btn)` | Toggle existing reaction on a message |
 | `addReaction(btn)` | Add reaction from emoji picker |
 | `openModal()` / `closeModal()` | Show/hide the chat modal overlay |
+| `startReply(btn)` | Extract sender/content from message DOM, set `replyTo`, show `#reply-preview` |
+| `cancelReply()` | Clear `replyTo`, hide preview bar |
+| `scrollToMsg(msgId)` | Smooth-scroll to message + trigger `.msg-highlight` animation |
+| `initMsgIds()` | Assign `data-msg-id` to all messages, wire `data-action="reply"` buttons |
+| `applyTheme(name)` | Apply a ngũ hành theme by name — sets all CSS vars on `:root`, updates active dot |
 
 ## Design System
 
 - **Font:** Outfit (Google Fonts, weights 300–700) — never substitute Inter or any other font
-- **Accent:** `#2563EB` (Blue-600) — active states, badges, send button, "You" pill, S3/S4 action buttons
+- **Accent:** controlled by CSS custom property `--c-main` (default `#2563EB` Blue-600). Do NOT hardcode `#2563EB` in new rules — reference `var(--c-main)` so theming works.
 - **Sidebar / left panel bg:** `#F8FAFC`
 - **Main chat bg:** white
 - **Right panel bg:** `#FAFAFA`
@@ -142,6 +167,26 @@ Four collapsible sections toggled with `toggleSection()`. Panel visibility toggl
 - **Corner radii:** modal `rounded-2xl`, messages `10px`, cards `12px`, input `14px`, send button `9px`, LP group next button `10px`, context menu `10px`, menu items `7px` — do not mix arbitrarily
 - **Step indicator pills:** blue `#EFF6FF / #2563EB` for "1/2", green `#F0FDF4 / #16A34A` for "2/2"
 - **Context menu shadow:** `0 4px 20px rgba(15,23,42,0.08), 0 1px 4px rgba(15,23,42,0.04)` — two-layer, tinted to near-black not pure black
+
+### Ngũ Hành Theme System
+
+The accent color is personal to the user account — not per conversation. Five themes live in the `THEMES` object:
+
+| Key | Element | `--c-main` |
+|---|---|---|
+| `kim` | Kim (Metal) | `#2563EB` Blue-600 |
+| `moc` | Moc (Wood) | `#16A34A` Green-600 |
+| `thuy` | Thuy (Water) | `#B45309` Amber-700 |
+| `hoa` | Hoa (Fire) | `#DC2626` Red-600 |
+| `tho` | Tho (Earth) | `#7B4F24` warm cognac brown |
+
+Each theme entry has: `main, hover, tint, border, medium, dark, focus` — all mapped to the corresponding CSS variables via `applyTheme(name)`.
+
+Theme switcher UI: `.ngu-hanh-picker` row above the user footer in S1. Five `.nh-dot` circles; active dot gets class `nh-active` (ring outline using `box-shadow: 0 0 0 2px white, 0 0 0 3.5px var(--c-main)`).
+
+All accent-colored CSS rules use `var(--c-main)` (or the other variables) with `!important` overrides at the end of the `<style>` block. Original rules are untouched — the override layer at the bottom of `<style>` wins. When adding new themed elements, append to that override block rather than editing original rules.
+
+Elements that `applyTheme()` updates beyond CSS vars: `#user-avatar` background color, `.app-logo-icon` gradient, and the active `.nh-dot` ring.
 
 ## Installed Skills
 
@@ -166,4 +211,6 @@ To update skills: `npx skills check` then `npx skills update`.
 - **No em-dashes (`—`)** anywhere in visible UI text (skill rule, strictly enforced).
 - **No modal overlays for multi-step flows** — use the left panel slider pattern (S3/S4) instead. The `#nc-overlay` has been removed; do not recreate it.
 - **No nested `<button>` inside `<button>`** in any dynamically generated HTML string — use `<div role="button">` for interactive children of `.dm-item`.
-- When converting to React: each panel = its own component; right panel toggle state lives at root layout level; LP slider state (`currentScreen`, `grpSel`) lives in the left panel component; message grouping logic (consecutive same-sender = no avatar) must be preserved; `#conv-menu` becomes a portal rendered at document root.
+- When converting to React: each panel = its own component; right panel toggle state lives at root layout level; LP slider state (`currentScreen`, `grpSel`) lives in the left panel component; message grouping logic (consecutive same-sender = no avatar) must be preserved; `#conv-menu` becomes a portal rendered at document root; `replyTo` state lives in the center panel component; theme (`applyTheme`) becomes a context/store at root level.
+- **No hardcoded `#2563EB`** in new CSS rules — always use `var(--c-main)` so the ngũ hành theme switcher works.
+- **Reply quote semi-transparency:** `.reply-quote-me` uses `rgba` white overlays (not a fixed color) so it renders correctly on any theme accent, including red and brown.
