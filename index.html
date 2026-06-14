@@ -1,0 +1,2126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nexus Chat</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { font-family: 'Outfit', system-ui, -apple-system, sans-serif; margin: 0; padding: 0; }
+
+    /* Thin scrollbar */
+    .thin-scroll::-webkit-scrollbar { width: 4px; }
+    .thin-scroll::-webkit-scrollbar-track { background: transparent; }
+    .thin-scroll::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+    .thin-scroll::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+    /* Typing animation */
+    @keyframes bounce-dot {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-5px); opacity: 1; }
+    }
+    .typing-dot { animation: bounce-dot 1.4s ease-in-out infinite; }
+    .typing-dot:nth-child(2) { animation-delay: 0.18s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.36s; }
+
+    /* Hover actions on messages */
+    .message-group { position: relative; border-radius: 10px; transition: background 0.1s; }
+    .message-group:hover { background: #F8FAFC; }
+    .message-group:hover .msg-actions { opacity: 1; pointer-events: auto; }
+    .msg-actions {
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.15s ease;
+      position: absolute; top: -18px; right: 8px;
+      background: #FFFFFF; border: 1px solid #E2E8F0;
+      border-radius: 8px; padding: 3px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      display: flex; align-items: center; gap: 2px; z-index: 20;
+    }
+    .msg-action-btn {
+      width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+      border-radius: 6px; color: #64748B;
+      transition: background 0.1s, color 0.1s;
+      cursor: pointer; border: none; background: transparent;
+    }
+    .msg-action-btn:hover { background: #F1F5F9; color: #0F172A; }
+
+    /* Contenteditable placeholder */
+    [contenteditable]:empty::before { content: attr(data-placeholder); color: #94A3B8; pointer-events: none; }
+    [contenteditable]:focus { outline: none; }
+
+    /* DM item */
+    .dm-item { transition: background 0.1s; border-radius: 10px; }
+    .dm-item:hover:not(.dm-active) { background: #F1F5F9; }
+    .dm-active { background: #EFF6FF; }
+
+    /* Unread badge */
+    .badge {
+      background: #EF4444; color: white;
+      font-size: 10px; font-weight: 600; border-radius: 100px;
+      min-width: 18px; height: 18px;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0 5px; flex-shrink: 0;
+    }
+
+    /* Date separator */
+    .date-sep {
+      display: flex; align-items: center; gap: 12px;
+      color: #94A3B8; font-size: 11.5px; font-weight: 500;
+      margin: 20px 0 12px;
+    }
+    .date-sep::before, .date-sep::after { content: ''; flex: 1; height: 1px; background: #E2E8F0; }
+
+    /* Code block */
+    .code-block { background: #0F172A; border-radius: 10px; overflow: hidden; margin-top: 8px; max-width: 440px; }
+    .code-block-header {
+      background: #1E293B; padding: 7px 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid #334155;
+    }
+    .code-lang { font-size: 11px; color: #64748B; font-family: monospace; }
+    .code-copy {
+      font-size: 11px; color: #64748B; cursor: pointer;
+      border: none; background: transparent; padding: 2px 8px;
+      border-radius: 4px; transition: all 0.1s; font-family: inherit;
+    }
+    .code-copy:hover { background: #334155; color: #CBD5E1; }
+    .code-block pre {
+      padding: 14px 16px; margin: 0;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 12.5px; line-height: 1.65; overflow-x: auto; color: #CBD5E1;
+    }
+    .tok-selector { color: #93C5FD; }
+    .tok-prop { color: #86EFAC; }
+    .tok-val { color: #FCA5A5; }
+    .tok-comment { color: #475569; font-style: italic; }
+
+    /* Reactions */
+    .reaction {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: #F8FAFC; border: 1px solid #E2E8F0;
+      border-radius: 100px; padding: 2px 8px;
+      font-size: 13px; cursor: pointer;
+      transition: background 0.1s, border-color 0.1s;
+    }
+    .reaction:hover { background: #F0F9FF; border-color: #BAE6FD; }
+    .reaction.reacted { background: #EFF6FF; border-color: #93C5FD; }
+    .reaction .count { font-size: 11px; color: #2563EB; font-weight: 600; }
+
+    /* File card */
+    .file-card {
+      display: flex; align-items: center; gap: 12px;
+      border: 1px solid #E2E8F0; border-radius: 12px;
+      padding: 11px 14px; max-width: 300px;
+      background: #F8FAFC; margin-top: 8px;
+    }
+    .file-icon { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+    /* Image attachment */
+    .img-card { margin-top: 8px; border-radius: 12px; overflow: hidden; max-width: 320px; border: 1px solid #E2E8F0; display: block; }
+    .img-card img { display: block; width: 100%; }
+
+    /* Input box */
+    .input-box { border: 1.5px solid #E2E8F0; border-radius: 14px; background: white; transition: border-color 0.15s, box-shadow 0.15s; }
+    .input-box:focus-within { border-color: #93C5FD; box-shadow: 0 0 0 3px rgba(147,197,253,0.15); }
+
+    /* Toolbar btn */
+    .tb-btn {
+      width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+      border-radius: 6px; color: #94A3B8; transition: background 0.1s, color 0.1s;
+      cursor: pointer; border: none; background: transparent;
+    }
+    .tb-btn:hover { background: #F1F5F9; color: #475569; }
+
+    /* Right panel quick action button */
+    .rp-action {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      flex: 1; cursor: pointer; border: none; background: transparent;
+      padding: 10px 6px; border-radius: 12px;
+      transition: background 0.1s;
+    }
+    .rp-action:hover { background: #F1F5F9; }
+    .rp-action-icon {
+      width: 40px; height: 40px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: #EFF6FF; color: #2563EB;
+      transition: background 0.1s;
+    }
+    .rp-action:hover .rp-action-icon { background: #DBEAFE; }
+
+    /* Right panel section */
+    .rp-section { border-bottom: 1px solid #F1F5F9; }
+    .rp-section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px 10px; cursor: pointer;
+    }
+    .rp-section-header:hover { background: #F8FAFC; }
+
+    /* Media grid */
+    .media-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 3px; padding: 0 16px 12px; }
+    .media-thumb { aspect-ratio: 1; border-radius: 8px; overflow: hidden; cursor: pointer; transition: opacity 0.15s; }
+    .media-thumb:hover { opacity: 0.85; }
+    .media-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    /* Status dot */
+    .status-online { background: #22C55E; }
+    .status-offline { background: #CBD5E1; }
+    .status-away { background: #F59E0B; }
+
+    /* Right panel toggle */
+    .right-panel { width: 272px; flex-shrink: 0; transition: width 0.25s cubic-bezier(0.16,1,0.3,1), opacity 0.2s; overflow: hidden; }
+    .right-panel.collapsed { width: 0; opacity: 0; }
+
+    /* Search input in left panel */
+    .search-wrap { position: relative; }
+    .search-wrap input { width: 100%; background: white; border: 1px solid #E2E8F0; border-radius: 10px; padding: 7px 12px 7px 34px; font-size: 12.5px; color: #334155; font-family: 'Outfit', system-ui, sans-serif; outline: none; transition: border-color 0.15s; }
+    .search-wrap input:focus { border-color: #93C5FD; }
+    .search-wrap input::placeholder { color: #94A3B8; }
+    .search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+
+    /* Modal animation */
+    @keyframes modal-in {
+      from { opacity: 0; transform: scale(0.985) translateY(10px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-animate { animation: modal-in 0.25s cubic-bezier(0.16,1,0.3,1) forwards; }
+
+    /* Info row in right panel */
+    .info-row { display: flex; align-items: center; gap: 10px; padding: 7px 16px; }
+    .info-row:hover { background: #F8FAFC; }
+
+    /* Left panel filter tabs */
+    .filter-tab { padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer; border: none; background: transparent; color: #94A3B8; transition: background 0.1s, color 0.1s; }
+    .filter-tab.active { background: #EFF6FF; color: #2563EB; }
+    .filter-tab:hover:not(.active) { background: #F1F5F9; color: #475569; }
+
+    /* ===== LEFT PANEL SLIDER ===== */
+    #lp-track {
+      display: flex; height: 100%;
+      will-change: transform;
+      transition: transform 0.32s cubic-bezier(0.16,1,0.3,1);
+    }
+    #lp-s1, #lp-s2, #lp-s3, #lp-s4 {
+      width: 268px; min-width: 268px; flex-shrink: 0;
+      display: flex; flex-direction: column;
+    }
+    /* Step indicator pill */
+    .lp-step-pill {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #EFF6FF; color: #2563EB; border-radius: 100px;
+      font-size: 10.5px; font-weight: 700; padding: 2px 9px; letter-spacing: 0.01em; flex-shrink: 0;
+    }
+    /* Contact row in Screen 2 */
+    .lp-cr {
+      width: 100%; display: flex; align-items: center; gap: 11px;
+      padding: 7px 10px; border-radius: 10px; border: none; background: transparent;
+      cursor: pointer; text-align: left; transition: background 0.1s;
+    }
+    .lp-cr:hover { background: #F1F5F9; }
+    .lp-cr:active { background: #E2E8F0; }
+    .lp-alpha {
+      padding: 8px 10px 3px; font-size: 10.5px; font-weight: 700;
+      letter-spacing: 0.06em; color: #94A3B8; text-transform: uppercase;
+      position: sticky; top: 0; background: #F8FAFC; z-index: 1;
+    }
+    /* Create Group button */
+    .lp-grp-btn {
+      width: 100%; padding: 10px 16px; border-radius: 12px;
+      background: #2563EB; color: white; border: none; cursor: pointer;
+      font-family: 'Outfit', system-ui, sans-serif; font-weight: 600; font-size: 13px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .lp-grp-btn:hover { background: #1D4ED8; }
+    .lp-grp-btn:active { transform: scale(0.98); }
+
+    /* ===== S3: GROUP MEMBER SELECT ===== */
+    .gm-row {
+      width: 100%; display: flex; align-items: center; gap: 10px;
+      padding: 7px 10px; border-radius: 10px; border: none; background: transparent;
+      cursor: pointer; text-align: left; transition: background 0.1s; font-family: 'Outfit', system-ui, sans-serif;
+    }
+    .gm-row:hover { background: #F1F5F9; }
+    .gm-row.gm-sel { background: #EFF6FF; }
+    .gm-row.gm-sel:hover { background: #DBEAFE; }
+    .gm-av-wrap { position: relative; flex-shrink: 0; width: 36px; height: 36px; }
+    .gm-av { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: 700; }
+    .gm-chk {
+      position: absolute; inset: 0; border-radius: 50%;
+      background: rgba(37,99,235,0.88);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transform: scale(0.5);
+      transition: opacity 0.15s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+      pointer-events: none;
+    }
+    .gm-row.gm-sel .gm-chk { opacity: 1; transform: scale(1); }
+    #lp-s3-chips {
+      display: flex; flex-wrap: wrap; gap: 5px;
+      padding: 8px 12px; border-bottom: 1px solid #F1F5F9; flex-shrink: 0;
+      max-height: 84px; overflow-y: auto;
+    }
+    .lp-gc {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 100px; padding: 2px 7px 2px 3px;
+      animation: chip-pop 0.22s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+    .lp-gc-av { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 7px; font-weight: 700; flex-shrink: 0; }
+    .lp-gc > span { font-size: 11px; font-weight: 500; color: #1D4ED8; line-height: 1; }
+    .lp-gc-x { width: 14px; height: 14px; border-radius: 50%; background: #BFDBFE; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #3B82F6; padding: 0; flex-shrink: 0; transition: background 0.1s; }
+    .lp-gc-x:hover { background: #93C5FD; }
+    .lp-gm-footer { padding: 12px 14px; border-top: 1px solid #E2E8F0; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .lp-gm-count { font-size: 11.5px; font-weight: 500; color: #94A3B8; }
+    .lp-gm-next {
+      display: flex; align-items: center; gap: 5px;
+      background: #2563EB; color: white; border: none; cursor: pointer;
+      font-family: 'Outfit', system-ui, sans-serif; font-weight: 600; font-size: 12.5px;
+      border-radius: 10px; padding: 8px 14px;
+      transition: background 0.12s, transform 0.1s, opacity 0.18s;
+      opacity: 0.38; pointer-events: none;
+    }
+    .lp-gm-next.lp-gm-ok { opacity: 1; pointer-events: auto; }
+    .lp-gm-next:hover { background: #1D4ED8; }
+    .lp-gm-next:active { transform: scale(0.97); }
+
+    /* ===== S4: GROUP INFO ===== */
+    .lp-gi-av-wrap { display: flex; flex-direction: column; align-items: center; padding: 18px 16px 12px; border-bottom: 1px solid #F1F5F9; flex-shrink: 0; }
+    .lp-gi-av { width: 70px; height: 70px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; position: relative; transition: opacity 0.18s; }
+    .lp-gi-av.lp-av-empty { background: #F1F5F9; border: 2px dashed #CBD5E1; }
+    .lp-gi-av.lp-av-filled { border: none; }
+    .lp-gi-av:hover { opacity: 0.82; }
+    .lp-gi-av-letters { font-size: 22px; font-weight: 700; color: white; display: none; letter-spacing: -0.5px; }
+    .lp-gi-av-label { font-size: 10.5px; color: #94A3B8; font-weight: 500; margin-top: 7px; }
+    .lp-gi-field { padding: 0 14px 10px; flex-shrink: 0; }
+    .lp-gi-field.lp-gi-first { padding-top: 14px; }
+    .lp-gi-label { font-size: 10px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px; display: block; }
+    .lp-gi-input { width: 100%; padding: 9px 12px; border-radius: 11px; border: 1.5px solid #E2E8F0; background: #F8FAFC; font-size: 13.5px; font-family: 'Outfit', system-ui, sans-serif; color: #1E293B; outline: none; transition: border-color 0.15s, background 0.15s; box-sizing: border-box; }
+    .lp-gi-input:focus { border-color: #93C5FD; background: white; }
+    .lp-gi-input::placeholder { color: #94A3B8; }
+    .lp-gi-members-bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid #F1F5F9; flex-shrink: 0; }
+    .lp-create-btn { margin: 12px 14px 16px; padding: 11px; border-radius: 12px; background: #2563EB; color: white; border: none; cursor: pointer; font-family: 'Outfit', system-ui, sans-serif; font-weight: 600; font-size: 13.5px; transition: background 0.12s, transform 0.1s; flex-shrink: 0; display: block; width: calc(100% - 28px); }
+    .lp-create-btn:hover:not(:disabled) { background: #1D4ED8; }
+    .lp-create-btn:active:not(:disabled) { transform: scale(0.99); }
+    .lp-create-btn:disabled { background: #E2E8F0; color: #CBD5E1; cursor: not-allowed; }
+
+    @keyframes chip-pop {
+      from { opacity: 0; transform: scale(0.65); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    /* ===== CONVERSATION TYPE ICONS ===== */
+    .conv-type-dot {
+      width: 14px; height: 14px; border-radius: 3px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; position: absolute; bottom: -2px; right: -2px;
+      border: 1.5px solid #F8FAFC;
+    }
+    .conv-type-dot.voucher { background: #DBEAFE; }
+    .conv-type-dot.group   { background: #F0FDF4; }
+
+    /* ===== VOUCHER STATUS BADGES ===== */
+    .vs-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 9px; border-radius: 100px;
+      font-size: 10.5px; font-weight: 700; letter-spacing: 0.01em;
+    }
+    .vs-badge.pending  { background: #FEF3C7; color: #B45309; }
+    .vs-badge.approved { background: #F0FDF4; color: #16A34A; }
+    .vs-badge.rejected { background: #FEF2F2; color: #DC2626; }
+
+    /* Voucher type tag */
+    .vt-tag {
+      display: inline-flex; align-items: center;
+      padding: 3px 9px; border-radius: 6px;
+      font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
+    }
+    .vt-tag.hoadon   { background: #DBEAFE; color: #1D4ED8; }
+    .vt-tag.phieuchi { background: #FEE2E2; color: #DC2626; }
+
+    /* Voucher amount */
+    .voucher-amount { font-size: 21px; font-weight: 700; color: #0F172A; letter-spacing: -0.5px; }
+
+    /* ===== APPROVAL TIMELINE ===== */
+    .apv-timeline { padding: 4px 16px 12px; }
+    .apv-step { display: flex; gap: 11px; position: relative; }
+    .apv-step:not(:last-child)::after {
+      content: ''; position: absolute; left: 14px; top: 30px; bottom: -2px;
+      width: 1.5px; background: #E2E8F0;
+    }
+    .apv-icon {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .apv-icon.done    { background: #F0FDF4; }
+    .apv-icon.active  { background: #EFF6FF; }
+    .apv-icon.waiting { background: #F8FAFC; border: 1.5px dashed #CBD5E1; }
+    .apv-body { flex: 1; padding-bottom: 14px; }
+    .apv-name { font-size: 12.5px; font-weight: 600; margin-bottom: 1px; }
+    .apv-name.done-text { color: #1E293B; }
+    .apv-name.active-text { color: #2563EB; }
+    .apv-name.wait-text { color: #94A3B8; }
+    .apv-role { font-size: 11px; }
+    .apv-time { font-size: 10.5px; color: #94A3B8; }
+
+    /* ===== GROUP MEMBER ROW in RP ===== */
+    .rp-mbr {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 16px; transition: background 0.1s; cursor: default;
+    }
+    .rp-mbr:hover { background: #F8FAFC; }
+
+    /* ===== VOUCHER INFO ROW ===== */
+    .v-info-row { display: flex; gap: 10px; padding: 6px 16px; }
+    .v-info-label { font-size: 10.5px; color: #94A3B8; margin-bottom: 1px; }
+    .v-info-value { font-size: 12.5px; font-weight: 500; color: #334155; }
+
+    /* ===== RIGHT-SIDE (OWN) MESSAGES ===== */
+    .msg-me-wrap .msg-actions { right: auto; left: 8px; }
+    .msg-me-bubble {
+      background: #2563EB; color: white;
+      border-radius: 18px 18px 4px 18px;
+      padding: 9px 14px; font-size: 13.5px;
+      line-height: 1.6; word-break: break-word;
+      display: inline-block; max-width: 100%;
+    }
+
+    /* ===== CONV DOT-MENU BUTTON ===== */
+    .dm-ts-area {
+      flex-shrink: 0; margin-left: 4px;
+      position: relative; height: 20px; min-width: 30px;
+      display: flex; align-items: center; justify-content: flex-end;
+    }
+    .dm-ts {
+      font-size: 10px; white-space: nowrap;
+      transition: opacity 0.12s; pointer-events: none;
+    }
+    .dm-menu-btn {
+      position: absolute; right: -1px; top: 50%; transform: translateY(-50%);
+      width: 22px; height: 22px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      border: none; background: transparent; cursor: pointer; color: #94A3B8;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.12s, background 0.1s, color 0.1s;
+      flex-shrink: 0;
+    }
+    .dm-item:hover .dm-ts { opacity: 0; }
+    .dm-item:hover .dm-menu-btn { opacity: 1; pointer-events: auto; }
+    .dm-item.menu-open .dm-ts { opacity: 0; }
+    .dm-item.menu-open .dm-menu-btn { opacity: 1; pointer-events: auto; background: #E8EFF8; color: #2563EB; }
+    .dm-menu-btn:hover { background: #E2E8F0; color: #475569; }
+
+    /* ===== CONV CONTEXT MENU ===== */
+    .conv-menu {
+      position: fixed; z-index: 9999;
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 10px;
+      padding: 4px;
+      box-shadow: 0 4px 20px rgba(15,23,42,0.08), 0 1px 4px rgba(15,23,42,0.04);
+      width: 180px;
+      opacity: 0; pointer-events: none;
+      transform: scale(0.95) translateY(-4px);
+      transform-origin: top right;
+      transition: opacity 0.14s cubic-bezier(0.16,1,0.3,1), transform 0.14s cubic-bezier(0.16,1,0.3,1);
+    }
+    .conv-menu.open { opacity: 1; pointer-events: auto; transform: scale(1) translateY(0); }
+    .conv-menu-item {
+      width: 100%; display: flex; align-items: center; gap: 9px;
+      padding: 7px 10px; border-radius: 7px;
+      border: none; background: transparent; cursor: pointer;
+      font-family: 'Outfit', system-ui, sans-serif;
+      font-size: 12.5px; font-weight: 500; color: #1E293B; text-align: left;
+      transition: background 0.1s;
+    }
+    .conv-menu-item:hover { background: #F1F5F9; }
+    .conv-menu-item.danger { color: #DC2626; }
+    .conv-menu-item.danger:hover { background: #FEF2F2; }
+    .conv-menu-sep { height: 1px; background: #F1F5F9; margin: 3px 4px; }
+
+    /* ===== DOC CHIP (inside voucher message bubbles) ===== */
+    .doc-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px 2px 6px; border-radius: 6px;
+      font-size: 10.5px; font-weight: 700; letter-spacing: 0.01em;
+      margin-bottom: 5px;
+    }
+    .doc-chip.hoadon  { background: #DBEAFE; color: #1D4ED8; }
+    .doc-chip.phieuchi { background: #FEE2E2; color: #DC2626; }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center" style="background: linear-gradient(135deg, #CBD5E1, #94A3B8);">
+
+  <!-- Background hint -->
+  <div class="fixed inset-0 flex items-center justify-center select-none opacity-30 pointer-events-none">
+    <div class="text-white text-xl font-semibold tracking-tight">Nexus Studio</div>
+  </div>
+
+  <!-- Reopen button -->
+  <button id="reopen-btn" onclick="openModal()" style="display:none;"
+    class="fixed bottom-8 right-8 z-40 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg transition-colors">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    Open Chat
+  </button>
+
+  <!-- Backdrop -->
+  <div id="backdrop" class="fixed inset-0 z-40" style="background: rgba(15,23,42,0.4); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"></div>
+
+  <!-- =================== MODAL =================== -->
+  <div id="chat-modal" class="fixed z-50 modal-animate"
+    style="inset: 16px; max-width: 1360px; max-height: 860px; margin: auto;">
+
+    <div class="w-full h-full bg-white rounded-2xl shadow-2xl flex overflow-hidden"
+      style="border: 1px solid rgba(226,232,240,0.8);">
+
+      <!-- ============ LEFT PANEL ============ -->
+      <div class="flex flex-col flex-shrink-0" style="width: 268px; border-right: 1px solid #E2E8F0; background: #F8FAFC; overflow: hidden;">
+        <div id="lp-track">
+        <!-- Screen 1: Conversations -->
+        <div id="lp-s1">
+
+        <!-- App Header -->
+        <div class="px-4 pt-4 pb-3 flex items-center justify-between" style="border-bottom: 1px solid #F1F5F9;">
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+              style="background: linear-gradient(135deg, #2563EB, #1D4ED8);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="white" fill-opacity="0.95">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </div>
+            <span class="font-semibold text-slate-900" style="font-size: 14px;">Messages</span>
+          </div>
+          <div class="flex items-center gap-0.5">
+            <button class="tb-btn" title="New conversation" onclick="openNewConv()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>
+            <button class="tb-btn" title="Filter">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+                <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Search -->
+        <div class="px-3 pt-3 pb-2">
+          <div class="search-wrap">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input type="text" placeholder="Search conversations...">
+          </div>
+        </div>
+
+        <!-- Filter tabs -->
+        <div class="flex items-center gap-1 px-3 pb-2">
+          <button class="filter-tab active">All</button>
+          <button class="filter-tab">Unread</button>
+          <button class="filter-tab">Groups</button>
+        </div>
+
+        <!-- Conversation List (rendered by JS) -->
+        <div id="lp-conv-list" class="flex-1 overflow-y-auto thin-scroll px-2 pb-2 space-y-0.5"></div>
+
+        <!-- User Profile -->
+        <div class="px-3 py-3 flex items-center gap-2.5" style="border-top: 1px solid #E2E8F0;">
+          <div class="relative flex-shrink-0">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold" style="background: #2563EB;">MH</div>
+            <div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full status-online" style="border: 2px solid white;"></div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-slate-800 font-semibold truncate" style="font-size: 13px;">Minh Hoang</div>
+            <div class="text-slate-400" style="font-size: 10.5px;">Active now</div>
+          </div>
+          <button class="tb-btn" style="width:30px;height:30px;" title="Settings">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+            </svg>
+          </button>
+        </div>
+
+        </div><!-- /lp-s1 -->
+
+        <!-- Screen 2: Contact Picker -->
+        <div id="lp-s2" style="background: #F8FAFC;">
+
+          <!-- S2 Header -->
+          <div class="flex items-center gap-2 px-3 pt-3.5 pb-3" style="border-bottom: 1px solid #F1F5F9; flex-shrink: 0;">
+            <button onclick="lpBack()" class="tb-btn flex-shrink-0" style="width:30px;height:30px;" title="Back">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span style="font-size: 14px; font-weight: 700; color: #0F172A; flex: 1; letter-spacing: -0.01em;">New Conversation</span>
+          </div>
+
+          <!-- S2 Search -->
+          <div class="px-3 pt-3 pb-2" style="flex-shrink: 0;">
+            <div class="search-wrap">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+              <input type="text" id="lp-s2-search" placeholder="Search by name..." oninput="lpSearchContacts(this.value)" autocomplete="off">
+            </div>
+          </div>
+
+          <!-- Online pill -->
+          <div id="lp-online-strip" class="px-4 pb-2.5" style="flex-shrink: 0;">
+            <div style="display: inline-flex; align-items: center; gap: 5px; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 100px; padding: 3px 10px 3px 7px;">
+              <span style="width: 6px; height: 6px; border-radius: 50%; background: #22C55E; flex-shrink: 0; display: inline-block;"></span>
+              <span id="lp-online-count" style="font-size: 11px; font-weight: 600; color: #16A34A;"></span>
+            </div>
+          </div>
+
+          <!-- S2 Contact List -->
+          <div id="lp-s2-list" class="flex-1 overflow-y-auto thin-scroll px-2 pb-2"></div>
+
+          <!-- S2 Footer -->
+          <div class="px-3 py-3" style="border-top: 1px solid #E2E8F0; flex-shrink: 0;">
+            <button class="lp-grp-btn" onclick="lpOpenGroup()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+              Create Group
+            </button>
+          </div>
+
+        </div><!-- /lp-s2 -->
+
+        <!-- Screen 3: Add Members (Group Step 1/2) -->
+        <div id="lp-s3" style="background: #F8FAFC;">
+
+          <!-- S3 Header -->
+          <div class="flex items-center gap-2 px-3 pt-3.5 pb-3" style="border-bottom: 1px solid #F1F5F9; flex-shrink: 0;">
+            <button onclick="lpGroupBack()" class="tb-btn flex-shrink-0" style="width:30px;height:30px;" title="Back">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span style="font-size: 14px; font-weight: 700; color: #0F172A; flex: 1; letter-spacing: -0.01em;">Add Members</span>
+            <span class="lp-step-pill">1/2</span>
+          </div>
+
+          <!-- S3 Chips -->
+          <div id="lp-s3-chips" style="display: none;"></div>
+
+          <!-- S3 Search -->
+          <div class="px-3 pt-2.5 pb-2" style="flex-shrink: 0;">
+            <div class="search-wrap">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input type="text" id="lp-s3-search" placeholder="Search members..." oninput="lpGroupSearch(this.value)" autocomplete="off">
+            </div>
+          </div>
+
+          <!-- S3 Contact list -->
+          <div id="lp-s3-list" class="flex-1 overflow-y-auto thin-scroll px-2 pb-2"></div>
+
+          <!-- S3 Footer -->
+          <div class="lp-gm-footer">
+            <span id="lp-gm-count" class="lp-gm-count">Select members</span>
+            <button id="lp-gm-next" class="lp-gm-next" onclick="lpGroupNext()">
+              Next
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+
+        </div><!-- /lp-s3 -->
+
+        <!-- Screen 4: Group Info (Group Step 2/2) -->
+        <div id="lp-s4" style="background: #F8FAFC; overflow-y: auto;" class="thin-scroll">
+
+          <!-- S4 Header -->
+          <div class="flex items-center gap-2 px-3 pt-3.5 pb-3" style="border-bottom: 1px solid #F1F5F9; flex-shrink: 0; position: sticky; top: 0; background: #F8FAFC; z-index: 1;">
+            <button onclick="lpGroupInfoBack()" class="tb-btn flex-shrink-0" style="width:30px;height:30px;" title="Back">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span style="font-size: 14px; font-weight: 700; color: #0F172A; flex: 1; letter-spacing: -0.01em;">New Group</span>
+            <span class="lp-step-pill" style="background: #F0FDF4; color: #16A34A;">2/2</span>
+          </div>
+
+          <!-- S4 Avatar -->
+          <div class="lp-gi-av-wrap">
+            <div id="lp-gi-av" class="lp-gi-av lp-av-empty">
+              <div id="lp-av-empty-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </div>
+              <div id="lp-av-initials" class="lp-gi-av-letters"></div>
+            </div>
+            <span class="lp-gi-av-label">Group photo</span>
+          </div>
+
+          <!-- S4 Group Name -->
+          <div class="lp-gi-field lp-gi-first">
+            <label class="lp-gi-label" for="lp-gname">Group Name</label>
+            <input type="text" id="lp-gname" class="lp-gi-input" placeholder="e.g. Design Team" oninput="lpUpdateGroupAvatar()" autocomplete="off">
+          </div>
+
+          <!-- S4 Description -->
+          <div class="lp-gi-field">
+            <label class="lp-gi-label" for="lp-gdesc">Description</label>
+            <input type="text" id="lp-gdesc" class="lp-gi-input" placeholder="What is this group about? (optional)">
+          </div>
+
+          <!-- S4 Members summary -->
+          <div class="lp-gi-members-bar">
+            <div style="width: 28px; height: 28px; border-radius: 50%; background: #EFF6FF; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2.2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <span id="lp-gi-member-count" style="font-size: 12.5px; color: #475569; font-weight: 500;"></span>
+          </div>
+
+          <!-- S4 Create button -->
+          <button id="lp-create-btn" class="lp-create-btn" disabled onclick="lpGroupCreate()">Create Group</button>
+
+        </div><!-- /lp-s4 -->
+
+        </div><!-- /lp-track -->
+      </div><!-- /left panel -->
+
+      <!-- ============ MAIN CHAT ============ -->
+      <div class="flex-1 flex flex-col min-w-0 bg-white">
+
+        <!-- Chat Header -->
+        <div class="flex-shrink-0 px-5 flex items-center justify-between" style="height: 64px; border-bottom: 1px solid #E2E8F0;">
+          <div class="flex items-center gap-3">
+            <div class="relative" id="ch-av-wrap">
+              <div id="ch-avatar" class="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold"
+                style="background: #059669;">LT</div>
+              <div id="ch-status-dot" class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full status-online" style="border: 2px solid white;"></div>
+            </div>
+            <div>
+              <div id="ch-name" class="text-slate-900 font-semibold" style="font-size: 14px;">Linh Tran</div>
+              <div id="ch-sub" class="flex items-center gap-1.5 text-slate-400" style="font-size: 11.5px;">
+                <span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block"></span>
+                Active now
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-0.5">
+            <button class="tb-btn" style="width:32px;height:32px;" title="Search">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </button>
+            <button class="tb-btn" style="width:32px;height:32px;" title="Voice call">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9a16 16 0 0 0 6 6l1.15-1.15a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            </button>
+            <button class="tb-btn" style="width:32px;height:32px;" title="Video call">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            </button>
+            <!-- Toggle right panel -->
+            <button id="toggle-rp-btn" onclick="toggleRightPanel()" style="width:32px;height:32px;" title="Contact info" class="tb-btn" style="color: #2563EB;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/>
+              </svg>
+            </button>
+            <div class="w-px h-5 bg-slate-200 mx-1.5"></div>
+            <button onclick="closeModal()" title="Close"
+              class="flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              style="width:32px;height:32px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Messages -->
+        <div id="messages" class="flex-1 overflow-y-auto thin-scroll px-5 py-4" style="scroll-behavior: smooth;">
+
+          <div class="date-sep">Today</div>
+
+          <!-- MSG 1: Linh (start) -->
+          <div class="message-group px-2 py-2 -mx-2" style="margin-bottom: 2px;">
+            <div class="msg-actions">
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+            </div>
+            <div class="flex gap-3">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background: #059669;">LT</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2 mb-1">
+                  <span class="font-semibold text-slate-900" style="font-size: 13.5px;">Linh Tran</span>
+                  <span class="text-slate-400" style="font-size: 11px;">9:32 AM</span>
+                </div>
+                <p class="text-slate-700 leading-relaxed" style="font-size: 13.5px;">Hey Minh! Quick question about the design system we talked about last week.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- MSG 2: Linh (consecutive) -->
+          <div class="message-group px-2 py-1 -mx-2" style="margin-bottom: 6px;">
+            <div class="msg-actions">
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+            </div>
+            <div class="flex gap-3">
+              <div class="w-9 flex-shrink-0"></div>
+              <p class="text-slate-700 leading-relaxed flex-1" style="font-size: 13.5px;">I'm deciding which color token to use for hover states on card components. Should it match the primary accent, or stay neutral?</p>
+            </div>
+          </div>
+
+          <!-- MSG 3: Minh (me) - right bubble -->
+          <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom: 2px; margin-top: 10px;">
+            <div class="msg-actions">
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+            </div>
+            <div style="display:flex;justify-content:flex-end;">
+              <div style="max-width:72%;">
+                <div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">9:45 AM</span></div>
+                <div class="msg-me-bubble">Hey! For card hover states, always use the neutral palette. The accent should only appear on elements that signal a primary action - keeps visual hierarchy clean.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- MSG 4: Minh (consecutive + code) - right aligned -->
+          <div class="message-group msg-me-wrap px-2 py-1.5 -mx-2" style="margin-bottom: 6px;">
+            <div class="msg-actions">
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+            </div>
+            <div style="display:flex;justify-content:flex-end;">
+              <div style="max-width:80%;">
+                <div class="msg-me-bubble" style="margin-bottom:8px;border-radius:18px;">Here's the token I'd use:</div>
+                <div class="code-block">
+                  <div class="code-block-header">
+                    <span class="code-lang">css</span>
+                    <button class="code-copy" onclick="copyCode(this)">Copy</button>
+                  </div>
+                  <pre><code><span class="tok-selector">.card</span>:hover {
+  <span class="tok-prop">background</span>: <span class="tok-val">var(--color-surface-hover)</span>; <span class="tok-comment">/* slate-100 */</span>
+  <span class="tok-prop">transition</span>: <span class="tok-val">background 0.15s ease</span>;
+}
+
+<span class="tok-selector">.card</span>:active {
+  <span class="tok-prop">background</span>: <span class="tok-val">var(--color-surface-pressed)</span>; <span class="tok-comment">/* slate-200 */</span>
+}</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- MSG 5: Linh + image -->
+          <div class="message-group px-2 py-2 -mx-2" style="margin-bottom: 2px; margin-top: 10px;">
+            <div class="msg-actions">
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+            </div>
+            <div class="flex gap-3">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background: #059669;">LT</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2 mb-1">
+                  <span class="font-semibold text-slate-900" style="font-size: 13.5px;">Linh Tran</span>
+                  <span class="text-slate-400" style="font-size: 11px;">9:48 AM</span>
+                </div>
+                <p class="text-slate-700 leading-relaxed" style="font-size: 13.5px;">Perfect! Updated the component. Here's a quick Figma preview:</p>
+                <a class="img-card" href="#" onclick="return false;">
+                  <img src="https://picsum.photos/seed/design-system-figma/680/380" alt="Figma design preview" loading="lazy">
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- MSG 6: Linh + file -->
+          <div class="message-group px-2 py-1.5 -mx-2" style="margin-bottom: 6px;">
+            <div class="msg-actions">
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+            </div>
+            <div class="flex gap-3">
+              <div class="w-9 flex-shrink-0"></div>
+              <div class="flex-1 min-w-0">
+                <p class="text-slate-700 leading-relaxed" style="font-size: 13.5px;">Also attaching the updated token docs:</p>
+                <div class="file-card">
+                  <div class="file-icon" style="background: #FEE2E2;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                      <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                    </svg>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-slate-800 font-medium truncate" style="font-size: 13px;">design-tokens-v2.pdf</div>
+                    <div class="text-slate-400" style="font-size: 11px;">2.4 MB · PDF Document</div>
+                  </div>
+                  <button class="text-blue-600 hover:text-blue-700 font-medium flex-shrink-0 transition-colors" style="font-size: 12px;">Download</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- MSG 7: Minh - right bubble -->
+          <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom: 2px; margin-top: 10px;">
+            <div class="msg-actions">
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+            </div>
+            <div style="display:flex;justify-content:flex-end;">
+              <div style="max-width:72%;">
+                <div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">9:52 AM</span></div>
+                <div class="msg-me-bubble">Looks great! The hierarchy reads much cleaner. Let's lock this in as the reference for the full component library review next sprint.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- MSG 8: Linh + reactions -->
+          <div class="message-group px-2 py-2 -mx-2" style="margin-bottom: 6px; margin-top: 10px;">
+            <div class="msg-actions">
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
+              <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+            </div>
+            <div class="flex gap-3">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background: #059669;">LT</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2 mb-1">
+                  <span class="font-semibold text-slate-900" style="font-size: 13.5px;">Linh Tran</span>
+                  <span class="text-slate-400" style="font-size: 11px;">9:54 AM</span>
+                </div>
+                <p class="text-slate-700 leading-relaxed" style="font-size: 13.5px;">Will do! Should I also update the Storybook docs with the new interaction states?</p>
+                <div class="flex items-center gap-1.5 mt-2">
+                  <button class="reaction reacted" onclick="toggleReaction(this)">
+                    <span>👍</span><span class="count">2</span>
+                  </button>
+                  <button class="reaction" onclick="toggleReaction(this)">
+                    <span>🎉</span><span class="count" style="color:#64748B;">1</span>
+                  </button>
+                  <button class="reaction" onclick="addReaction(this)" style="padding:2px 7px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Typing indicator -->
+          <div id="typing-indicator" class="flex items-center gap-3 px-2 py-2 -mx-2" style="margin-top: 8px;">
+            <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0" style="background: #059669;">LT</div>
+            <div class="flex items-center gap-2.5">
+              <div class="flex items-center gap-1 rounded-xl px-3 py-2.5" style="background: #F1F5F9;">
+                <div class="typing-dot w-1.5 h-1.5 rounded-full bg-slate-400"></div>
+                <div class="typing-dot w-1.5 h-1.5 rounded-full bg-slate-400"></div>
+                <div class="typing-dot w-1.5 h-1.5 rounded-full bg-slate-400"></div>
+              </div>
+              <span class="text-slate-400" style="font-size: 11.5px;">Linh is typing...</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Input Area -->
+        <div class="flex-shrink-0 px-4 py-3" style="border-top: 1px solid #F1F5F9;">
+          <div class="input-box">
+            <!-- Formatting toolbar -->
+            <div class="flex items-center gap-0.5 px-3 pt-2.5 pb-2" style="border-bottom: 1px solid #F8FAFC;">
+              <button class="tb-btn" title="Bold"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg></button>
+              <button class="tb-btn" title="Italic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg></button>
+              <button class="tb-btn" title="Code"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>
+              <div class="w-px h-4 bg-slate-200 mx-1"></div>
+              <button class="tb-btn" title="Link"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+              <button class="tb-btn" title="List"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+            </div>
+
+            <!-- Text input -->
+            <div id="chat-input" contenteditable="true" data-placeholder="Message Linh Tran..."
+              onkeydown="handleKeyDown(event)" class="thin-scroll"
+              style="min-height:44px;max-height:128px;overflow-y:auto;padding:10px 16px;font-size:13.5px;color:#1E293B;line-height:1.6;outline:none;font-family:'Outfit',system-ui,sans-serif;"></div>
+
+            <!-- Bottom row -->
+            <div class="flex items-center justify-between px-3 pb-2.5 pt-1">
+              <div class="flex items-center gap-0.5">
+                <button class="tb-btn" title="Attach file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
+                <button class="tb-btn" title="Image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></button>
+                <button class="tb-btn" title="Emoji"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
+                <button class="tb-btn" title="Mention"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg></button>
+              </div>
+              <button onclick="sendMessage()" title="Send (Enter)"
+                style="width:32px;height:32px;background:#2563EB;border-radius:9px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s,transform 0.1s;flex-shrink:0;"
+                onmouseover="this.style.background='#1D4ED8'" onmouseout="this.style.background='#2563EB'"
+                onmousedown="this.style.transform='scale(0.92)'" onmouseup="this.style.transform='scale(1)'">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="flex items-center gap-1 mt-1.5 px-1" style="font-size:11px;color:#CBD5E1;">
+            <kbd style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;padding:0 4px;font-size:10px;color:#94A3B8;font-family:monospace;">Enter</kbd>
+            <span>to send</span>
+            <span style="margin:0 4px;">·</span>
+            <kbd style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;padding:0 4px;font-size:10px;color:#94A3B8;font-family:monospace;">Shift+Enter</kbd>
+            <span>new line</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ RIGHT PANEL ============ -->
+      <div id="right-panel" class="right-panel flex flex-col" style="border-left: 1px solid #E2E8F0; background: #FAFAFA; overflow-y: auto;" class="thin-scroll">
+        <div id="rp-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NC overlay removed — group creation now lives in the left panel slider (S3 + S4) -->
+  <div id="nc-overlay" style="display:none;">
+    <div id="nc-modal">
+
+      <!-- STEP 1: Contact picker -->
+      <div id="nc-s1" style="display:flex;flex-direction:column;min-height:0;flex:1;">
+
+        <!-- Header -->
+        <div class="nc-header">
+          <span class="nc-header-title" id="nc-title">New conversation</span>
+          <button class="nc-icon-btn" onclick="closeNewConv()" title="Close">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <!-- Chips bar -->
+        <div id="nc-chips-bar" style="display:none;"></div>
+
+        <!-- Search -->
+        <div class="nc-search-row">
+          <svg class="nc-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="nc-search-inp" placeholder="Search by name..." oninput="ncSearch(this.value)" autocomplete="off">
+        </div>
+
+        <!-- Contact list -->
+        <div id="nc-list" class="thin-scroll"></div>
+
+        <!-- Footer -->
+        <div class="nc-footer">
+          <span id="nc-sel-label" style="font-size: 12px; color: #94A3B8; font-weight: 500;">Select members</span>
+          <button id="nc-btn-next" class="nc-btn-next" onclick="ncGoStep2()">
+            <span id="nc-next-label">Next</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- STEP 2: Group setup -->
+      <div id="nc-s2">
+
+        <!-- Header -->
+        <div class="nc-header">
+          <button class="nc-icon-btn" onclick="ncGoStep1()" title="Back">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <span class="nc-header-title">New group</span>
+        </div>
+
+        <!-- Avatar upload -->
+        <div class="nc-upload-circle" onclick="">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <span>Add photo</span>
+        </div>
+
+        <!-- Group name -->
+        <input type="text" id="nc-gname-inp" class="nc-gname" placeholder="Group name" oninput="ncCheckName()">
+
+        <!-- Members -->
+        <div class="nc-members-label">Members</div>
+        <div id="nc-mbr-list" class="nc-members-wrap thin-scroll"></div>
+
+        <!-- Create -->
+        <button id="nc-create-btn" class="nc-create" disabled onclick="ncCreate()">Create Group</button>
+
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // ===== SVG ICONS (reusable) =====
+    const ICO = {
+      phone:    `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9a16 16 0 0 0 6 6l1.15-1.15a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`,
+      video:    `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,
+      bell:     `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
+      more:     `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>`,
+      adduser:  `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>`,
+      search:   `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>`,
+      pin:      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
+      block:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>`,
+      leave:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="1.8" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`,
+      download: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
+      chevdown: `<polyline points="6 9 12 15 18 9"/>`,
+      check:    `<polyline points="20 6 9 17 4 12"/>`,
+      dot3:     `<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>`,
+      email:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`,
+      phone2:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9a16 16 0 0 0 6 6l1.15-1.15a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`,
+      dept:     `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+      doc:      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
+      users:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+      ref:      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
+      cal:      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+      cat:      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
+    };
+
+    // ===== CONVERSATION DATA =====
+    const ME = { ini: 'MH', color: '#2563EB', name: 'Minh Hoang' };
+
+    const CONV_DATA = [
+      {
+        id: 'linh-tran', type: 'dm',
+        name: 'Linh Tran', ini: 'LT', color: '#059669', online: true,
+        role: 'UI/UX Designer', email: 'linh.tran@nexusstudio.co',
+        phone: '0912 345 678', location: 'TP. Ho Chi Minh',
+        joined: 'Thang 3, 2023',
+        lastMsg: 'Should I also update Storybook docs...', time: 'now', unread: 0,
+      },
+      {
+        id: 'minh-an', type: 'dm',
+        name: 'Minh An', ini: 'MA', color: '#7C3AED', online: true,
+        role: 'Frontend Developer', email: 'minh.an@nexusstudio.co',
+        phone: '0908 765 432', location: 'Ha Noi',
+        joined: 'Thang 6, 2023',
+        lastMsg: 'Component looks great, nice work!', time: '5m', unread: 1,
+      },
+      {
+        id: 'quan-nguyen', type: 'dm',
+        name: 'Quan Nguyen', ini: 'QN', color: '#DC2626', online: false,
+        role: 'Product Manager', email: 'quan.nguyen@nexusstudio.co',
+        phone: '0901 234 567', location: 'TP. Ho Chi Minh',
+        joined: 'Thang 1, 2023',
+        lastMsg: 'Meeting at 3 today?', time: '1h', unread: 0,
+      },
+      {
+        id: 'thu-ha', type: 'dm',
+        name: 'Thu Ha', ini: 'TH', color: '#D97706', online: false,
+        role: 'Content Strategist', email: 'thu.ha@nexusstudio.co',
+        phone: '0977 123 456', location: 'Da Nang',
+        joined: 'Thang 9, 2023',
+        lastMsg: 'Thanks for the review!', time: '2h', unread: 0,
+      },
+      {
+        id: 'design-team', type: 'group',
+        name: 'Design Team', ini: 'DT', gradFrom: '#F59E0B', gradTo: '#D97706',
+        lastSender: 'Linh', lastMsg: 'Figma file da duoc cap nhat roi nhe', time: '3 ngay', unread: 5,
+        description: 'Nhom thiet ke san pham - UI/UX & Visual',
+        members: [
+          { ini: 'LT', color: '#059669', name: 'Linh Tran',    role: 'UI/UX Designer',    online: true  },
+          { ini: 'MA', color: '#7C3AED', name: 'Minh An',      role: 'Frontend Dev',      online: true  },
+          { ini: 'QN', color: '#DC2626', name: 'Quan Nguyen',  role: 'Product Manager',   online: false },
+          { ini: 'TH', color: '#D97706', name: 'Thu Ha',       role: 'Content Strategist',online: false },
+          { ini: 'HB', color: '#9333EA', name: 'Hieu Bui',     role: 'Backend Dev',       online: false },
+          { ini: 'KN', color: '#EA4335', name: 'Khanh Nguyen', role: 'QA Engineer',       online: true  },
+          { ini: 'LD', color: '#4F46E5', name: 'Lan Dao',      role: 'Visual Designer',   online: false },
+        ],
+      },
+      {
+        id: 'hd-2024-001', type: 'voucher',
+        voucherType: 'hoadon', voucherLabel: 'HOA DON',
+        name: 'HD-2024-001', ini: 'HD',
+        amount: '12.500.000', currency: 'VND',
+        status: 'pending', statusLabel: 'Cho duyet',
+        date: '13/06/2024', vendor: 'Cty TNHH ABC Technology',
+        department: 'Phong Ke Toan', reference: 'PO-2024-089',
+        category: 'Mua sam thiet bi van phong',
+        lastMsg: 'Vui long kiem tra lai so tien thue VAT...', time: '1h', unread: 2,
+        approvers: [
+          { ini: 'VA', color: '#0891B2', name: 'Nguyen Van A', role: 'Nguoi tao',      status: 'done',   time: '13/06 14:30' },
+          { ini: 'TB', color: '#D97706', name: 'Nguyen Thi B', role: 'Ke toan truong', status: 'active', time: null },
+          { ini: 'VC', color: '#059669', name: 'Pham Van C',   role: 'Giam doc',       status: 'wait',   time: null },
+        ],
+        files: [
+          { name: 'hoa-don-abc-tech.pdf', size: '1.2 MB', color: '#FEE2E2', stroke: '#DC2626' },
+          { name: 'bien-ban-nghiem-thu.jpg', size: '840 KB', color: '#DBEAFE', stroke: '#2563EB' },
+        ],
+      },
+      {
+        id: 'pc-2024-047', type: 'voucher',
+        voucherType: 'phieuchi', voucherLabel: 'PHIEU CHI',
+        name: 'PC-2024-047', ini: 'PC',
+        amount: '3.200.000', currency: 'VND',
+        status: 'approved', statusLabel: 'Da duyet',
+        date: '10/06/2024', vendor: 'Pham Thi D (Nhan vien)',
+        department: 'Phong Hanh Chinh', reference: 'YC-2024-112',
+        category: 'Chi phi cong tac Da Nang',
+        lastMsg: 'Phieu chi da duoc phe duyet. Ke toan xuat...', time: 'Hom qua', unread: 0,
+        approvers: [
+          { ini: 'TD', color: '#DB2777', name: 'Pham Thi D',   role: 'Nguoi tao',      status: 'done', time: '10/06 09:15' },
+          { ini: 'TB', color: '#D97706', name: 'Nguyen Thi B', role: 'Ke toan truong', status: 'done', time: '10/06 11:42' },
+          { ini: 'VC', color: '#059669', name: 'Pham Van C',   role: 'Giam doc',       status: 'done', time: '10/06 15:20' },
+        ],
+        files: [
+          { name: 'giay-de-nghi-cong-tac.pdf', size: '680 KB', color: '#FEE2E2', stroke: '#DC2626' },
+          { name: 'hoa-don-khach-san.pdf',      size: '1.1 MB', color: '#FEE2E2', stroke: '#DC2626' },
+          { name: 've-may-bay-khu-hoi.pdf',     size: '520 KB', color: '#F3F4F6', stroke: '#6B7280' },
+        ],
+      },
+    ];
+
+    // ===== MESSAGES PER CONVERSATION =====
+    const CONV_MESSAGES = {
+      'linh-tran': `
+        <div class="date-sep">Hom nay</div>
+        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#059669;">LT</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Linh Tran</span><span class="text-slate-400" style="font-size:11px;">9:32 SA</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Hey Minh! Minh dang can tu van ve design system minh dang lam. Co thoi gian khong?</p></div></div>
+        </div>
+        <div class="message-group px-2 py-1 -mx-2" style="margin-bottom:6px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div class="flex gap-3"><div class="w-9 flex-shrink-0"></div><p class="text-slate-700 leading-relaxed flex-1" style="font-size:13.5px;">Dang can chon color token nao cho hover state tren card component. Nen dung accent hay neutral?</p></div>
+        </div>
+        <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div style="display:flex;justify-content:flex-end;"><div style="max-width:72%;"><div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">9:45 SA</span></div><div class="msg-me-bubble">Dung neutral palette cho card hover. Accent chi danh cho primary action - giu visual hierarchy sach hon.</div></div></div>
+        </div>
+        <div class="message-group msg-me-wrap px-2 py-1.5 -mx-2" style="margin-bottom:6px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div style="display:flex;justify-content:flex-end;"><div style="max-width:80%;"><div class="msg-me-bubble" style="margin-bottom:8px;border-radius:18px;">Day la token minh de xuat:</div><div class="code-block"><div class="code-block-header"><span class="code-lang">css</span><button class="code-copy" onclick="copyCode(this)">Copy</button></div><pre><code><span class="tok-selector">.card</span>:hover {
+  <span class="tok-prop">background</span>: <span class="tok-val">var(--color-surface-hover)</span>; <span class="tok-comment">/* slate-100 */</span>
+}</code></pre></div></div></div>
+        </div>
+        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#059669;">LT</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Linh Tran</span><span class="text-slate-400" style="font-size:11px;">9:54 SA</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Cap nhat xong roi nhe! Should I also update Storybook docs with the new interaction states?</p><div class="flex items-center gap-1.5 mt-2"><button class="reaction reacted" onclick="toggleReaction(this)"><span>👍</span><span class="count">2</span></button><button class="reaction" onclick="addReaction(this)" style="padding:2px 7px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button></div></div></div>
+        </div>
+        <div id="typing-indicator" class="flex items-center gap-3 px-2 py-2 -mx-2" style="margin-top:8px;">
+          <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0" style="background:#059669;">LT</div>
+          <div class="flex items-center gap-2.5"><div class="flex items-center gap-1 rounded-xl px-3 py-2.5" style="background:#F1F5F9;"><div class="typing-dot w-1.5 h-1.5 rounded-full bg-slate-400"></div><div class="typing-dot w-1.5 h-1.5 rounded-full bg-slate-400"></div><div class="typing-dot w-1.5 h-1.5 rounded-full bg-slate-400"></div></div><span class="text-slate-400" style="font-size:11.5px;">Linh dang go...</span></div>
+        </div>`,
+
+      'minh-an': `
+        <div class="date-sep">Hom nay</div>
+        <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom:2px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div style="display:flex;justify-content:flex-end;"><div style="max-width:72%;"><div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">9:10 SA</span></div><div class="msg-me-bubble">An oi, cai Dropdown component ban lam hom qua co van de voi keyboard navigation. Kiem tra lai giup minh nhe.</div></div></div>
+        </div>
+        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#7C3AED;">MA</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Minh An</span><span class="text-slate-400" style="font-size:11px;">9:18 SA</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">OK minh xem qua roi. Co ve bug o chỗ focus trap khi dong menu. De minh fix.</p></div></div>
+        </div>
+        <div class="message-group px-2 py-1 -mx-2" style="margin-bottom:6px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div class="flex gap-3"><div class="w-9 flex-shrink-0"></div><p class="text-slate-700 leading-relaxed flex-1" style="font-size:13.5px;">Fix xong roi nhe, dang push len PR. Nho review giup minh.</p></div>
+        </div>
+        <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div style="display:flex;justify-content:flex-end;"><div style="max-width:72%;"><div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">9:50 SA</span></div><div class="msg-me-bubble">Da review xong. LGTM! Merge duoc roi. Component looks great, nice work!</div></div></div>
+        </div>`,
+
+      'quan-nguyen': `
+        <div class="date-sep">Hom nay</div>
+        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#DC2626;">QN</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Quan Nguyen</span><span class="text-slate-400" style="font-size:11px;">8:45 SA</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Minh oi, hom nay co meeting Q3 planning luc 3 gio chieu. Ban co available khong?</p></div></div>
+        </div>
+        <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div style="display:flex;justify-content:flex-end;"><div style="max-width:72%;"><div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">8:52 SA</span></div><div class="msg-me-bubble">Co chu, meeting at 3 today?</div></div></div>
+        </div>`,
+
+      'thu-ha': `
+        <div class="date-sep">Hom nay</div>
+        <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom:2px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div style="display:flex;justify-content:flex-end;"><div style="max-width:72%;"><div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">7:30 SA</span></div><div class="msg-me-bubble">Thu Ha oi, da review xong bai viet onboarding flow roi. Co mot so gop y nho, minh da comment tren doc. Check dum minh nhe.</div></div></div>
+        </div>
+        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#D97706;">TH</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Thu Ha</span><span class="text-slate-400" style="font-size:11px;">8:15 SA</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Cam on Minh nhieu nhe! Minh da doc het comments roi, rat huu ich. Se chinh sua va gui lai truoc 5 gio. Thanks for the review!</p><div class="flex items-center gap-1.5 mt-2"><button class="reaction reacted" onclick="toggleReaction(this)"><span>🙏</span><span class="count">1</span></button></div></div></div>
+        </div>`,
+
+      'design-team': `
+        <div class="date-sep">3 ngay truoc</div>
+        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#059669;">LT</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Linh Tran</span><span class="text-slate-400" style="font-size:11px;">Thu 3, 10:20 SA</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Team oi, minh vua update Figma file cho Sprint 8. Co them component DatePicker va TimePicker moi. Moi nguoi check va feedback nhe!</p></div></div>
+        </div>
+        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#7C3AED;">MA</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Minh An</span><span class="text-slate-400" style="font-size:11px;">10:35 SA</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Nice! DatePicker design dep lam. Minh se start implement sau khi merge PR hien tai.</p></div></div>
+        </div>
+        <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div style="display:flex;justify-content:flex-end;"><div style="max-width:72%;"><div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">11:02 SA</span></div><div class="msg-me-bubble">Figma file da duoc cap nhat roi nhe. Co them component DatePicker va TimePicker moi. Moi nguoi check nhe!</div><div class="flex items-center gap-1.5 mt-2 justify-end"><button class="reaction reacted" onclick="toggleReaction(this)"><span>👍</span><span class="count">4</span></button><button class="reaction" onclick="toggleReaction(this)"><span>🎉</span><span class="count" style="color:#64748B;">2</span></button></div></div></div>
+        </div>
+        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#EA4335;">KN</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Khanh Nguyen</span><span class="text-slate-400" style="font-size:11px;">Thu 3, 2:15 CH</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Minh vua test DatePicker tren mobile, co mot so van de nho voi touch target size. Ghi issue len Jira nhe Linh.</p></div></div>
+        </div>`,
+
+      'hd-2024-001': `
+        <div class="date-sep">Hom qua, 13/06/2024</div>
+        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#0891B2;">VA</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Nguyen Van A</span><span class="text-slate-400" style="font-size:11px;">14:28 CH</span></div><div class="doc-chip hoadon"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Hoa don</div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Chi Binh oi, em vua tao hoa don HD-2024-001 tu Cty TNHH ABC Technology, tong gia tri 12.500.000 VND. Chi xem va duyet giup em voi.</p></div></div>
+        </div>
+        <div class="message-group px-2 py-1 -mx-2" style="margin-bottom:6px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div class="flex gap-3"><div class="w-9 flex-shrink-0"></div><div class="file-card"><div class="file-icon" style="background:#FEE2E2;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="1.8" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="flex-1 min-w-0"><div class="text-slate-800 font-medium truncate" style="font-size:13px;">hoa-don-abc-tech.pdf</div><div class="text-slate-400" style="font-size:11px;">1.2 MB · PDF</div></div></div></div>
+        </div>
+        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#D97706;">TB</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Nguyen Thi B</span><span class="text-slate-400" style="font-size:11px;">14:55 CH</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">OK chi se xem. Co bien ban nghiem thu chua em? Can kem theo de duyet.</p></div></div>
+        </div>
+        <div class="message-group px-2 py-1 -mx-2" style="margin-bottom:6px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div class="flex gap-3"><div class="w-9 flex-shrink-0"></div><div class="file-card"><div class="file-icon" style="background:#DBEAFE;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div><div class="flex-1 min-w-0"><div class="text-slate-800 font-medium truncate" style="font-size:13px;">bien-ban-nghiem-thu.jpg</div><div class="text-slate-400" style="font-size:11px;">840 KB · Anh</div></div></div></div>
+        </div>
+        <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div style="display:flex;justify-content:flex-end;"><div style="max-width:72%;"><div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">15:12 CH</span></div><div class="msg-me-bubble">So luong trong hoa don khop voi don hang PO-2024-089. Vui long kiem tra lai so tien thue VAT - hoa don ghi 10% nhung hop dong quy dinh 8%.</div></div></div>
+        </div>
+        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#D97706;">TB</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Nguyen Thi B</span><span class="text-slate-400" style="font-size:11px;">15:40 CH</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Van A oi, em lien he lai nha cung cap de xuat lai hoa don voi thue VAT dung nhe. Chi chua the duyet duoc.</p></div></div>
+        </div>`,
+
+      'pc-2024-047': `
+        <div class="date-sep">10/06/2024</div>
+        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#DB2777;">TD</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Pham Thi D</span><span class="text-slate-400" style="font-size:11px;">09:10 SA</span></div><div class="doc-chip phieuchi"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Phieu chi</div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Chi Binh oi, em gui phieu chi PC-2024-047 xin thanh toan chi phi cong tac Da Nang ngay 08-09/06. Tong 3.200.000 VND. Chi duyet giup em voi.</p></div></div>
+        </div>
+        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#D97706;">TB</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Nguyen Thi B</span><span class="text-slate-400" style="font-size:11px;">11:38 SA</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Da xem xong. Chi phi hop ly, du chung tu. Chi da duyet, chuyen len Giam doc ky nhe.</p></div></div>
+        </div>
+        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#059669;">VC</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Pham Van C</span><span class="text-slate-400" style="font-size:11px;">15:18 CH</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Da ky duyet. Ke toan xuat tien cho em Pham Thi D nhe. Phieu chi da duoc phe duyet.</p></div></div>
+        </div>
+        <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+          <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
+          <div style="display:flex;justify-content:flex-end;"><div style="max-width:72%;"><div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">15:45 CH</span></div><div class="msg-me-bubble">Da ghi nhan. Se tien hanh xuat tien cho em D trong hom nay. Cam on anh Giam doc.</div></div></div>
+        </div>`,
+    };
+
+    let activeConvId = 'linh-tran';
+    const messagesEl = document.getElementById('messages');
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    // ===== RENDER CONVERSATION LIST =====
+    function renderConvList() {
+      const list = document.getElementById('lp-conv-list');
+      list.innerHTML = CONV_DATA.map(c => {
+        const isActive = c.id === activeConvId;
+        const bg = isActive ? '#EFF6FF' : '';
+        const nameColor = isActive ? '#1D4ED8' : (c.lastMsg && !c.unread ? '#1E293B' : '#1E293B');
+        const timeColor = isActive ? '#93C5FD' : '#94A3B8';
+        const msgColor  = isActive ? '#3B82F6' : '#64748B';
+        const avatarBg  = c.type === 'group' ? `linear-gradient(135deg, ${c.gradFrom}, ${c.gradTo})` : c.color;
+        const iniText   = c.type === 'group' ? c.ini : c.ini;
+
+        // Type icon badge
+        let typeDot = '';
+        if (c.type === 'group') typeDot = `<div class="conv-type-dot group" style="border-color:${isActive?'#EFF6FF':'#F8FAFC'};"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.8" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg></div>`;
+        if (c.type === 'voucher') typeDot = `<div class="conv-type-dot voucher" style="border-color:${isActive?'#EFF6FF':'#F8FAFC'};"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>`;
+
+        let statusDot = '';
+        if (c.type === 'dm' && c.online) statusDot = `<div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full status-online" style="border:2px solid ${isActive?'#EFF6FF':'#F8FAFC'};"></div>`;
+
+        const displayName = c.type === 'voucher' ? c.name : c.name;
+        const displaySub  = `<span style="color:${msgColor};font-size:11.5px;" class="truncate flex-1 min-w-0">${c.type==='group' ? c.lastSender+': '+c.lastMsg : c.lastMsg}</span>`;
+
+        return `<button class="w-full flex items-center gap-3 px-2.5 py-2.5 dm-item text-left${isActive?' dm-active':''}" style="background:${bg};" onclick="selectConv('${c.id}')">
+          <div class="relative flex-shrink-0">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold" style="background:${avatarBg};font-size:${c.type==='group'?'11px':'13px'};">${iniText}</div>
+            ${statusDot}${typeDot}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between mb-0.5">
+              <span class="font-semibold truncate" style="font-size:13px;color:${isActive?'#1D4ED8':c.unread?'#1E293B':'#475569'};">${escapeHtml(displayName)}</span>
+              <div class="dm-ts-area">
+                <span class="dm-ts" style="color:${timeColor};">${c.time}</span>
+                <div class="dm-menu-btn" role="button" tabindex="-1" onclick="openConvMenu('${c.id}','${c.type}',event)" title="Tuy chon">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 overflow-hidden">${displaySub}${c.unread ? `<span class="badge flex-shrink-0">${c.unread}</span>` : ''}</div>
+          </div>
+        </button>`;
+      }).join('');
+    }
+
+    // ===== SELECT CONVERSATION =====
+    function selectConv(id) {
+      activeConvId = id;
+      const conv = CONV_DATA.find(c => c.id === id);
+      if (!conv) return;
+
+      renderConvList();
+      updateCenterHeader(conv);
+      updateMessages(conv);
+      renderRightPanel(conv);
+      updateInputPlaceholder(conv);
+    }
+
+    function updateCenterHeader(conv) {
+      const avatarEl = document.getElementById('ch-avatar');
+      const statusDot = document.getElementById('ch-status-dot');
+      const nameEl = document.getElementById('ch-name');
+      const subEl = document.getElementById('ch-sub');
+
+      if (conv.type === 'dm') {
+        const bg = conv.color;
+        avatarEl.style.background = bg;
+        avatarEl.style.borderRadius = '50%';
+        avatarEl.textContent = conv.ini;
+        statusDot.style.display = '';
+        statusDot.className = `absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ${conv.online ? 'status-online' : 'status-offline'}`;
+        nameEl.textContent = conv.name;
+        subEl.innerHTML = conv.online
+          ? `<span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block"></span> Active now`
+          : `<span class="w-1.5 h-1.5 rounded-full bg-slate-300 inline-block"></span> Offline`;
+      } else if (conv.type === 'group') {
+        avatarEl.style.background = `linear-gradient(135deg, ${conv.gradFrom}, ${conv.gradTo})`;
+        avatarEl.style.borderRadius = '12px';
+        avatarEl.textContent = conv.ini;
+        statusDot.style.display = 'none';
+        nameEl.textContent = conv.name;
+        subEl.innerHTML = `<span style="color:#64748B;">${conv.members.length} thanh vien</span>`;
+      } else if (conv.type === 'voucher') {
+        const tagColor = conv.voucherType === 'hoadon' ? '#1D4ED8' : '#DC2626';
+        const tagBg = conv.voucherType === 'hoadon' ? '#DBEAFE' : '#FEE2E2';
+        avatarEl.style.background = tagBg;
+        avatarEl.style.borderRadius = '10px';
+        avatarEl.style.color = tagColor;
+        avatarEl.style.fontSize = '10px';
+        avatarEl.style.fontWeight = '700';
+        avatarEl.style.letterSpacing = '0.03em';
+        avatarEl.textContent = conv.ini;
+        statusDot.style.display = 'none';
+        nameEl.textContent = conv.name;
+        const statusColors = { pending: '#B45309', approved: '#16A34A', rejected: '#DC2626' };
+        const statusBgs = { pending: '#FEF3C7', approved: '#F0FDF4', rejected: '#FEF2F2' };
+        subEl.innerHTML = `<span style="font-size:11px;background:${statusBgs[conv.status]};color:${statusColors[conv.status]};padding:1px 7px;border-radius:100px;font-weight:600;">${conv.statusLabel}</span><span style="color:#94A3B8;margin-left:4px;">${conv.vendor}</span>`;
+      }
+    }
+
+    function updateMessages(conv) {
+      messagesEl.innerHTML = CONV_MESSAGES[conv.id] || '<div class="date-sep">Bat dau cuoc tro chuyen</div>';
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function updateInputPlaceholder(conv) {
+      const input = document.getElementById('chat-input');
+      const label = conv.type === 'voucher' ? `Nhan xet ve ${conv.name}...` : conv.type === 'group' ? `Nhan tin vao ${conv.name}...` : `Nhan tin vao ${conv.name}...`;
+      input.setAttribute('data-placeholder', label);
+    }
+
+    // ===== RENDER RIGHT PANEL =====
+    function renderRightPanel(conv) {
+      const rp = document.getElementById('rp-content');
+      if (conv.type === 'dm') rp.innerHTML = renderRPDM(conv);
+      else if (conv.type === 'group') rp.innerHTML = renderRPGroup(conv);
+      else if (conv.type === 'voucher') rp.innerHTML = renderRPVoucher(conv);
+    }
+
+    function rpAction(icon, label) {
+      return `<button class="rp-action"><div class="rp-action-icon">${icon}</div><span class="text-slate-500" style="font-size:10.5px;">${label}</span></button>`;
+    }
+
+    function rpInfoRow(iconHtml, label, value, valueClass) {
+      return `<div class="info-row"><div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background:#F1F5F9;">${iconHtml}</div><div class="flex-1 min-w-0"><div class="text-slate-400" style="font-size:10.5px;">${label}</div><div class="${valueClass||'text-slate-700'} font-medium" style="font-size:12.5px;">${value}</div></div></div>`;
+    }
+
+    function rpSharedMedia(seeds) {
+      return `<div class="rp-section"><div class="rp-section-header" onclick="toggleSection('section-media',this)"><div><span class="font-semibold text-slate-700" style="font-size:12.5px;">Anh & Video</span><span class="text-slate-400 ml-1.5" style="font-size:11px;">${seeds.length+8}</span></div><div class="flex items-center gap-2"><span class="text-blue-600 font-medium" style="font-size:11px;">Xem tat ca</span><svg id="chevron-section-media" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s;">${ICO.chevdown}</svg></div></div><div id="section-media"><div class="media-grid">${seeds.map((s,i)=>i<5?`<div class="media-thumb"><img src="https://picsum.photos/seed/${s}/120/120" alt="" loading="lazy"></div>`:`<div class="media-thumb" style="position:relative;"><img src="https://picsum.photos/seed/${s}/120/120" alt="" loading="lazy"><div style="position:absolute;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;border-radius:8px;"><span style="color:white;font-size:13px;font-weight:600;">+8</span></div></div>`).join('')}</div></div></div>`;
+    }
+
+    function rpSharedFiles(files) {
+      const rows = files.map((f,i) => `<div class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer"${i===files.length-1?' style="padding-bottom:14px;"':''}><div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background:${f.color};"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${f.stroke}" stroke-width="1.8" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="flex-1 min-w-0"><div class="text-slate-700 font-medium truncate" style="font-size:12px;">${escapeHtml(f.name)}</div><div class="text-slate-400" style="font-size:10.5px;">${f.size}</div></div><button class="tb-btn flex-shrink-0">${ICO.download}</button></div>`).join('');
+      return `<div class="rp-section"><div class="rp-section-header" onclick="toggleSection('section-files',this)"><div><span class="font-semibold text-slate-700" style="font-size:12.5px;">File dinh kem</span><span class="text-slate-400 ml-1.5" style="font-size:11px;">${files.length}</span></div><svg id="chevron-section-files" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s;">${ICO.chevdown}</svg></div><div id="section-files">${rows}</div></div>`;
+    }
+
+    // ===== DM RIGHT PANEL =====
+    function renderRPDM(conv) {
+      const onlineDot  = conv.online ? `<div class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full status-online" style="border:2.5px solid #FAFAFA;"></div>` : '';
+      const statusText = conv.online
+        ? `<span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block"></span><span class="text-green-600 font-medium" style="font-size:11.5px;">Active now</span>`
+        : `<span class="text-slate-400" style="font-size:11.5px;">Offline</span>`;
+      return `
+        <div class="flex flex-col items-center pt-8 pb-5 px-4" style="border-bottom:1px solid #F1F5F9;">
+          <div class="relative mb-3">
+            <div class="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-semibold" style="background:${conv.color};">${conv.ini}</div>
+            ${onlineDot}
+          </div>
+          <div class="font-semibold text-slate-900 text-center" style="font-size:15px;">${escapeHtml(conv.name)}</div>
+          <div class="text-slate-400 text-center mt-0.5" style="font-size:12px;">${escapeHtml(conv.role)}</div>
+          <div class="flex items-center gap-1.5 mt-1">${statusText}</div>
+          <div class="flex items-center gap-1 mt-5 w-full">
+            ${rpAction(ICO.phone,'Goi')}${rpAction(ICO.video,'Video')}${rpAction(ICO.bell,'Tat thong bao')}${rpAction(ICO.more,'Khac')}
+          </div>
+        </div>
+        <div class="rp-section">
+          <div class="rp-section-header" onclick="toggleSection('section-info',this)">
+            <span class="font-semibold text-slate-700" style="font-size:12.5px;">Thong tin lien lac</span>
+            <svg id="chevron-section-info" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s;">${ICO.chevdown}</svg>
+          </div>
+          <div id="section-info">
+            ${rpInfoRow(ICO.email,'Email',`<a href="mailto:${conv.email}" style="color:#2563EB;">${conv.email}</a>`)}
+            ${rpInfoRow(ICO.phone2,'Dien thoai',conv.phone)}
+            ${rpInfoRow(ICO.dept,'Phong ban',conv.location)}
+            <div style="padding-bottom:6px;"></div>
+          </div>
+        </div>
+        ${rpSharedMedia(['dm-m1','dm-m2','dm-m3','dm-m4','dm-m5','dm-m6'])}
+        ${rpSharedFiles([
+          {name:'design-tokens-v2.pdf',size:'2.4 MB',color:'#FEE2E2',stroke:'#DC2626'},
+          {name:'component-specs.docx',size:'845 KB',color:'#DBEAFE',stroke:'#2563EB'},
+        ])}
+        <div>
+          <div class="px-4 py-3"><span class="font-semibold text-slate-700" style="font-size:12.5px;">Tuy chon</span></div>
+          <div class="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer">
+            <div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#F1F5F9;">${ICO.bell}</div><span class="text-slate-700" style="font-size:12.5px;">Thong bao</span></div>
+            <div id="notif-toggle" onclick="toggleSwitch(this)" class="w-9 h-5 rounded-full cursor-pointer transition-colors flex items-center px-0.5" style="background:#2563EB;"><div class="w-4 h-4 bg-white rounded-full shadow-sm transition-transform" style="transform:translateX(16px);"></div></div>
+          </div>
+          <div class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer"><div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#F1F5F9;">${ICO.pin}</div><span class="text-slate-700" style="font-size:12.5px;">Ghim cuoc tro chuyen</span></div>
+          <div class="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 transition-colors cursor-pointer" style="padding-bottom:20px;"><div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#FEF2F2;">${ICO.block}</div><span class="text-red-500 font-medium" style="font-size:12.5px;">Chan nguoi dung</span></div>
+        </div>`;
+    }
+
+    // ===== GROUP RIGHT PANEL =====
+    function renderRPGroup(conv) {
+      const memberRows = conv.members.map(m => `
+        <div class="rp-mbr">
+          <div class="relative flex-shrink-0">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold" style="background:${m.color};font-size:11px;">${m.ini}</div>
+            ${m.online ? `<div class="absolute -bottom-0 -right-0 w-2 h-2 rounded-full status-online" style="border:1.5px solid #FAFAFA;"></div>` : ''}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="font-medium text-slate-800 truncate" style="font-size:12.5px;">${escapeHtml(m.name)}</div>
+            <div class="text-slate-400" style="font-size:11px;">${m.role}</div>
+          </div>
+        </div>`).join('');
+
+      return `
+        <div class="flex flex-col items-center pt-8 pb-5 px-4" style="border-bottom:1px solid #F1F5F9;">
+          <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-lg font-bold mb-3" style="background:linear-gradient(135deg,${conv.gradFrom},${conv.gradTo});">${conv.ini}</div>
+          <div class="font-semibold text-slate-900 text-center" style="font-size:15px;">${escapeHtml(conv.name)}</div>
+          <div class="text-slate-400 text-center mt-0.5 px-4" style="font-size:12px;">${escapeHtml(conv.description)}</div>
+          <div class="flex items-center gap-1.5 mt-1.5"><span class="text-slate-500" style="font-size:12px;">${conv.members.length} thanh vien</span></div>
+          <div class="flex items-center gap-1 mt-5 w-full">
+            ${rpAction(ICO.adduser,'Them TV')}${rpAction(ICO.search,'Tim kiem')}${rpAction(ICO.bell,'Tat thong bao')}${rpAction(ICO.more,'Khac')}
+          </div>
+        </div>
+        <div class="rp-section">
+          <div class="rp-section-header" onclick="toggleSection('section-members',this)">
+            <div><span class="font-semibold text-slate-700" style="font-size:12.5px;">Thanh vien</span><span class="text-slate-400 ml-1.5" style="font-size:11px;">${conv.members.length}</span></div>
+            <svg id="chevron-section-members" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s;">${ICO.chevdown}</svg>
+          </div>
+          <div id="section-members">${memberRows}<div style="padding-bottom:4px;"></div></div>
+        </div>
+        ${rpSharedMedia(['grp-m1','grp-m2','grp-m3','grp-m4','grp-m5','grp-m6'])}
+        ${rpSharedFiles([
+          {name:'sprint-8-figma-export.zip',size:'8.2 MB',color:'#F3F4F6',stroke:'#6B7280'},
+          {name:'design-review-notes.pdf',  size:'1.1 MB',color:'#FEE2E2',stroke:'#DC2626'},
+        ])}
+        <div>
+          <div class="px-4 py-3"><span class="font-semibold text-slate-700" style="font-size:12.5px;">Tuy chon</span></div>
+          <div class="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer">
+            <div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#F1F5F9;">${ICO.bell}</div><span class="text-slate-700" style="font-size:12.5px;">Thong bao</span></div>
+            <div id="notif-toggle" onclick="toggleSwitch(this)" class="w-9 h-5 rounded-full cursor-pointer transition-colors flex items-center px-0.5" style="background:#2563EB;"><div class="w-4 h-4 bg-white rounded-full shadow-sm transition-transform" style="transform:translateX(16px);"></div></div>
+          </div>
+          <div class="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 transition-colors cursor-pointer" style="padding-bottom:20px;"><div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#FEF2F2;">${ICO.leave}</div><span class="text-red-500 font-medium" style="font-size:12.5px;">Roi nhom</span></div>
+        </div>`;
+    }
+
+    // ===== VOUCHER RIGHT PANEL =====
+    function renderRPVoucher(conv) {
+      const tagClass = conv.voucherType;
+      const statusColors = { pending:'#B45309', approved:'#16A34A', rejected:'#DC2626' };
+      const statusBgs    = { pending:'#FEF3C7', approved:'#F0FDF4', rejected:'#FEF2F2' };
+
+      const apvSteps = conv.approvers.map((a, i) => {
+        const isLast = i === conv.approvers.length - 1;
+        let iconContent, nameClass, roleMeta;
+        if (a.status === 'done') {
+          iconContent = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.8" stroke-linecap="round">${ICO.check}</svg>`;
+          nameClass = 'done-text'; roleMeta = `<div class="apv-time">${a.time}</div>`;
+        } else if (a.status === 'active') {
+          iconContent = `<div class="w-2.5 h-2.5 rounded-full" style="background:#2563EB;"></div>`;
+          nameClass = 'active-text'; roleMeta = `<div class="apv-time" style="color:#2563EB;font-weight:500;">Dang cho duyet...</div>`;
+        } else {
+          iconContent = `<div class="w-2 h-2 rounded-full bg-slate-300"></div>`;
+          nameClass = 'wait-text'; roleMeta = `<div class="apv-time">Chua den luot</div>`;
+        }
+        return `<div class="apv-step">
+          <div class="apv-icon ${a.status==='done'?'done':a.status==='active'?'active':'waiting'}">${iconContent}</div>
+          <div class="apv-body">
+            <div class="apv-name ${nameClass}">${escapeHtml(a.name)}</div>
+            <div class="apv-role" style="font-size:11px;color:#94A3B8;">${escapeHtml(a.role)}</div>
+            ${roleMeta}
+          </div>
+        </div>`;
+      }).join('');
+
+      const infoRows = [
+        [ICO.cal,  'Ngay tao',    conv.date],
+        [ICO.users,'Nha cung cap / Nhan vien', conv.vendor],
+        [ICO.dept, 'Phong ban',   conv.department],
+        [ICO.ref,  'Ma tham chieu',conv.reference],
+        [ICO.cat,  'Danh muc',    conv.category],
+      ].map(([icon, label, val]) => `<div class="v-info-row"><div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background:#F1F5F9;">${icon}</div><div class="flex-1 min-w-0"><div class="v-info-label">${label}</div><div class="v-info-value">${escapeHtml(val)}</div></div></div>`).join('');
+
+      return `
+        <div class="flex flex-col items-center pt-7 pb-5 px-4" style="border-bottom:1px solid #F1F5F9;">
+          <span class="vt-tag ${tagClass} mb-3">${conv.voucherLabel}</span>
+          <div class="font-semibold text-slate-900 text-center" style="font-size:15px;letter-spacing:-0.2px;">${escapeHtml(conv.name)}</div>
+          <div class="voucher-amount mt-2">${conv.amount} <span style="font-size:13px;font-weight:600;color:#64748B;">${conv.currency}</span></div>
+          <div class="mt-2"><span class="vs-badge ${conv.status}">${conv.statusLabel}</span></div>
+          <div class="flex items-center gap-2 mt-5 w-full">
+            <button style="flex:1;padding:8px;border-radius:10px;border:1.5px solid #E2E8F0;background:white;cursor:pointer;font-family:'Outfit',sans-serif;font-size:12.5px;font-weight:600;color:#334155;transition:background 0.1s;" onmouseover="this.style.background='#F8FAFC'" onmouseout="this.style.background='white'">Xem tai lieu</button>
+            <button style="flex:1;padding:8px;border-radius:10px;border:none;background:#2563EB;color:white;cursor:pointer;font-family:'Outfit',sans-serif;font-size:12.5px;font-weight:600;transition:background 0.1s;" onmouseover="this.style.background='#1D4ED8'" onmouseout="this.style.background='#2563EB'">Tai xuong</button>
+          </div>
+        </div>
+        <div class="rp-section">
+          <div class="rp-section-header" onclick="toggleSection('section-vinfo',this)">
+            <span class="font-semibold text-slate-700" style="font-size:12.5px;">Thong tin chung tu</span>
+            <svg id="chevron-section-vinfo" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s;">${ICO.chevdown}</svg>
+          </div>
+          <div id="section-vinfo">${infoRows}<div style="padding-bottom:4px;"></div></div>
+        </div>
+        <div class="rp-section">
+          <div class="rp-section-header" onclick="toggleSection('section-apv',this)">
+            <span class="font-semibold text-slate-700" style="font-size:12.5px;">Luong phe duyet</span>
+            <svg id="chevron-section-apv" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s;">${ICO.chevdown}</svg>
+          </div>
+          <div id="section-apv"><div class="apv-timeline">${apvSteps}</div></div>
+        </div>
+        ${rpSharedFiles(conv.files)}
+        <div>
+          <div class="px-4 py-3"><span class="font-semibold text-slate-700" style="font-size:12.5px;">Tuy chon</span></div>
+          <div class="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer">
+            <div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#F1F5F9;">${ICO.bell}</div><span class="text-slate-700" style="font-size:12.5px;">Thong bao</span></div>
+            <div onclick="toggleSwitch(this)" class="w-9 h-5 rounded-full cursor-pointer transition-colors flex items-center px-0.5" style="background:#2563EB;"><div class="w-4 h-4 bg-white rounded-full shadow-sm transition-transform" style="transform:translateX(16px);"></div></div>
+          </div>
+          <div class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer" style="padding-bottom:20px;"><div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#F1F5F9;">${ICO.pin}</div><span class="text-slate-700" style="font-size:12.5px;">Ghim cuoc tro chuyen</span></div>
+        </div>`;
+    }
+
+    // Init
+    renderConvList();
+    renderRightPanel(CONV_DATA.find(c => c.id === activeConvId));
+
+    // Right panel toggle
+    let rpOpen = true;
+    function toggleRightPanel() {
+      const rp = document.getElementById('right-panel');
+      const btn = document.getElementById('toggle-rp-btn');
+      rpOpen = !rpOpen;
+      if (rpOpen) {
+        rp.classList.remove('collapsed');
+        btn.style.color = '#2563EB';
+      } else {
+        rp.classList.add('collapsed');
+        btn.style.color = '#94A3B8';
+      }
+    }
+
+    // Collapsible sections in right panel
+    function toggleSection(sectionId, header) {
+      const section = document.getElementById(sectionId);
+      const chevron = document.getElementById('chevron-' + sectionId);
+      const isHidden = section.style.display === 'none';
+      section.style.display = isHidden ? '' : 'none';
+      chevron.style.transform = isHidden ? '' : 'rotate(-90deg)';
+    }
+
+    // Notification toggle
+    function toggleSwitch(el) {
+      const dot = el.querySelector('div');
+      const isOn = dot.style.transform === 'translateX(16px)';
+      if (isOn) {
+        el.style.background = '#CBD5E1';
+        dot.style.transform = 'translateX(0)';
+      } else {
+        el.style.background = '#2563EB';
+        dot.style.transform = 'translateX(16px)';
+      }
+    }
+
+    // Filter tabs
+    document.querySelectorAll('.filter-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+
+    // Send message
+    function getCurrentTime() {
+      const now = new Date();
+      let h = now.getHours();
+      const m = String(now.getMinutes()).padStart(2, '0');
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      return `${h}:${m} ${ampm}`;
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement('div');
+      d.appendChild(document.createTextNode(str));
+      return d.innerHTML;
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('chat-input');
+      const text = input.innerText.trim();
+      if (!text) return;
+
+      const msgEl = document.createElement('div');
+      msgEl.className = 'message-group msg-me-wrap px-2 py-2 -mx-2';
+      msgEl.style.cssText = 'margin-bottom: 2px; margin-top: 10px;';
+      msgEl.innerHTML = `
+        <div class="msg-actions">
+          <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
+          <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+        </div>
+        <div style="display:flex;justify-content:flex-end;">
+          <div style="max-width:72%;">
+            <div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">${getCurrentTime()}</span></div>
+            <div class="msg-me-bubble">${escapeHtml(text)}</div>
+          </div>
+        </div>`;
+
+      const typingEl = document.getElementById('typing-indicator');
+      messagesEl.insertBefore(msgEl, typingEl);
+      input.innerText = '';
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function handleKeyDown(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    }
+
+    function copyCode(btn) {
+      const code = btn.closest('.code-block').querySelector('pre').innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        btn.textContent = 'Copied!';
+        btn.style.color = '#22C55E';
+        setTimeout(() => { btn.textContent = 'Copy'; btn.style.color = ''; }, 2000);
+      });
+    }
+
+    function toggleReaction(btn) {
+      const isReacted = btn.classList.contains('reacted');
+      const countEl = btn.querySelector('.count');
+      let n = parseInt(countEl.textContent);
+      if (isReacted) {
+        btn.classList.remove('reacted');
+        countEl.style.color = '#64748B';
+        countEl.textContent = n - 1;
+        if (n - 1 === 0) btn.remove();
+      } else {
+        btn.classList.add('reacted');
+        countEl.style.color = '#2563EB';
+        countEl.textContent = n + 1;
+      }
+    }
+
+    function addReaction(btn) {
+      const emojis = ['❤️', '🔥', '✅', '🚀', '😂'];
+      const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+      const newReaction = document.createElement('button');
+      newReaction.className = 'reaction';
+      newReaction.onclick = function() { toggleReaction(this); };
+      newReaction.innerHTML = `<span>${emoji}</span><span class="count" style="color:#64748B;">1</span>`;
+      btn.parentElement.insertBefore(newReaction, btn);
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('chat-modal');
+      const backdrop = document.getElementById('backdrop');
+      modal.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+      backdrop.style.transition = 'opacity 0.2s ease';
+      modal.style.opacity = '0';
+      modal.style.transform = 'scale(0.97) translateY(8px)';
+      backdrop.style.opacity = '0';
+      setTimeout(() => {
+        modal.style.display = 'none';
+        backdrop.style.display = 'none';
+        document.getElementById('reopen-btn').style.display = 'flex';
+      }, 210);
+    }
+
+    // ===== NEW CONVERSATION =====
+    const NC_CONTACTS = [
+      { id:  1, name: 'An Nguyen',    ini: 'AN', color: '#0891B2', online: true  },
+      { id:  2, name: 'Anh Pham',     ini: 'AP', color: '#7C3AED', online: false },
+      { id:  3, name: 'Bao Tran',     ini: 'BT', color: '#DC2626', online: true  },
+      { id:  4, name: 'Dung Le',      ini: 'DL', color: '#059669', online: false },
+      { id:  5, name: 'Duong Hoang',  ini: 'DH', color: '#D97706', online: false },
+      { id:  6, name: 'Ha Minh',      ini: 'HM', color: '#2563EB', online: true  },
+      { id:  7, name: 'Hieu Bui',     ini: 'HB', color: '#9333EA', online: false },
+      { id:  8, name: 'Hoang Nguyen', ini: 'HN', color: '#0891B2', online: true  },
+      { id:  9, name: 'Huong Tran',   ini: 'HT', color: '#0F9D58', online: false },
+      { id: 10, name: 'Khanh Nguyen', ini: 'KN', color: '#EA4335', online: true  },
+      { id: 11, name: 'Lan Dao',      ini: 'LD', color: '#4F46E5', online: false },
+      { id: 12, name: 'Linh Tran',    ini: 'LT', color: '#059669', online: true  },
+      { id: 13, name: 'Long Pham',    ini: 'LP', color: '#B45309', online: false },
+      { id: 14, name: 'Mai Nguyen',   ini: 'MN', color: '#DB2777', online: true  },
+      { id: 15, name: 'Minh An',      ini: 'MA', color: '#7C3AED', online: true  },
+      { id: 16, name: 'Minh Duc',     ini: 'MD', color: '#0891B2', online: false },
+      { id: 17, name: 'Nam Hoang',    ini: 'NH', color: '#16A34A', online: false },
+      { id: 18, name: 'Ngoc Phan',    ini: 'NP', color: '#D97706', online: true  },
+      { id: 19, name: 'Phuong Tran',  ini: 'PT', color: '#DC2626', online: false },
+      { id: 20, name: 'Thao Nguyen',  ini: 'TN', color: '#7C3AED', online: true  },
+      { id: 21, name: 'Thu Le',       ini: 'TL', color: '#059669', online: false },
+      { id: 22, name: 'Tuan Nguyen',  ini: 'TN', color: '#2563EB', online: false },
+      { id: 23, name: 'Van Dao',      ini: 'VD', color: '#EA4335', online: true  },
+      { id: 24, name: 'Vi Nguyen',    ini: 'VN', color: '#0F9D58', online: false },
+    ];
+
+    function openNewConv() {
+      lpRenderContacts('');
+      document.getElementById('lp-s2-search').value = '';
+      document.getElementById('lp-track').style.transform = 'translateX(-268px)';
+      setTimeout(() => document.getElementById('lp-s2-search').focus(), 340);
+    }
+
+    function lpBack() {
+      document.getElementById('lp-track').style.transform = 'translateX(0)';
+    }
+
+    function lpSearchContacts(val) {
+      lpRenderContacts(val);
+    }
+
+    function lpOpenDM(id) {
+      lpBack();
+    }
+
+    function lpRenderContacts(q) {
+      const listEl = document.getElementById('lp-s2-list');
+      const query = q.toLowerCase().trim();
+      const filtered = query
+        ? NC_CONTACTS.filter(c => c.name.toLowerCase().includes(query))
+        : NC_CONTACTS;
+
+      const onlineCount = NC_CONTACTS.filter(c => c.online).length;
+      const countEl = document.getElementById('lp-online-count');
+      if (countEl) countEl.textContent = onlineCount + ' online now';
+      const strip = document.getElementById('lp-online-strip');
+      if (strip) strip.style.display = query ? 'none' : '';
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `
+          <div style="padding:40px 16px;text-align:center;">
+            <div style="width:44px;height:44px;border-radius:50%;background:#F1F5F9;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </div>
+            <p style="font-size:13px;color:#94A3B8;margin:0;">No results for <strong style="color:#64748B;">${escapeHtml(q)}</strong></p>
+          </div>`;
+        return;
+      }
+
+      const grouped = {};
+      filtered.forEach(c => {
+        const letter = c.name[0].toUpperCase();
+        if (!grouped[letter]) grouped[letter] = [];
+        grouped[letter].push(c);
+      });
+
+      let html = '';
+      Object.keys(grouped).sort().forEach(letter => {
+        if (!query) html += `<div class="lp-alpha">${letter}</div>`;
+        grouped[letter].forEach(c => {
+          html += `
+            <button class="lp-cr" onclick="lpOpenDM(${c.id})">
+              <div style="position:relative;flex-shrink:0;">
+                <div style="width:38px;height:38px;border-radius:50%;background:${c.color};display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:700;">${c.ini}</div>
+                ${c.online ? `<div style="position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:#22C55E;border:2px solid #F8FAFC;"></div>` : ''}
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13.5px;font-weight:500;color:#1E293B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(c.name)}</div>
+                <div style="font-size:11px;margin-top:1px;color:${c.online ? '#16A34A' : '#94A3B8'};">${c.online ? 'Active now' : 'Offline'}</div>
+              </div>
+            </button>`;
+        });
+      });
+      listEl.innerHTML = html;
+    }
+
+    function openGroupModal() { lpOpenGroup(); }
+
+    // ===== LEFT PANEL: GROUP CREATION (S3 + S4) =====
+    let grpSel = new Set();
+
+    const LP_GRAD = [
+      ['#2563EB','#1D4ED8'], ['#059669','#047857'], ['#7C3AED','#6D28D9'],
+      ['#DC2626','#B91C1C'], ['#D97706','#B45309'], ['#0891B2','#0E7490'],
+      ['#DB2777','#BE185D'],
+    ];
+
+    function lpOpenGroup() {
+      grpSel.clear();
+      document.getElementById('lp-s3-search').value = '';
+      const chips = document.getElementById('lp-s3-chips');
+      chips.style.display = 'none';
+      chips.innerHTML = '';
+      document.getElementById('lp-gm-count').textContent = 'Select members';
+      document.getElementById('lp-gm-next').classList.remove('lp-gm-ok');
+      lpRenderGroupContacts('');
+      document.getElementById('lp-track').style.transform = 'translateX(-536px)';
+      setTimeout(() => document.getElementById('lp-s3-search').focus(), 340);
+    }
+
+    function lpGroupBack() {
+      document.getElementById('lp-track').style.transform = 'translateX(-268px)';
+    }
+
+    function lpGroupSearch(val) {
+      lpRenderGroupContacts(val);
+    }
+
+    function lpRenderGroupContacts(q) {
+      const listEl = document.getElementById('lp-s3-list');
+      const query = q.toLowerCase().trim();
+      const filtered = query
+        ? NC_CONTACTS.filter(c => c.name.toLowerCase().includes(query))
+        : NC_CONTACTS;
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `
+          <div style="padding:40px 16px;text-align:center;">
+            <div style="width:44px;height:44px;border-radius:50%;background:#F1F5F9;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </div>
+            <p style="font-size:13px;color:#94A3B8;margin:0;">No results for <strong style="color:#64748B;">${escapeHtml(q)}</strong></p>
+          </div>`;
+        return;
+      }
+
+      const grouped = {};
+      filtered.forEach(c => {
+        const letter = c.name[0].toUpperCase();
+        if (!grouped[letter]) grouped[letter] = [];
+        grouped[letter].push(c);
+      });
+
+      let html = '';
+      Object.keys(grouped).sort().forEach(letter => {
+        if (!query) html += `<div class="lp-alpha">${letter}</div>`;
+        grouped[letter].forEach(c => {
+          const sel = grpSel.has(c.id);
+          html += `
+            <button class="gm-row${sel ? ' gm-sel' : ''}" onclick="lpGroupToggle(${c.id})">
+              <div class="gm-av-wrap">
+                <div class="gm-av" style="background:${c.color};">${c.ini}</div>
+                <div class="gm-chk">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                ${c.online && !sel ? `<div style="position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:#22C55E;border:2px solid #F8FAFC;"></div>` : ''}
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13.5px;font-weight:500;color:#1E293B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(c.name)}</div>
+                <div style="font-size:11px;margin-top:1px;color:${c.online ? '#16A34A' : '#94A3B8'};">${c.online ? 'Active now' : 'Offline'}</div>
+              </div>
+            </button>`;
+        });
+      });
+      listEl.innerHTML = html;
+    }
+
+    function lpGroupToggle(id) {
+      if (grpSel.has(id)) grpSel.delete(id);
+      else grpSel.add(id);
+      lpGroupRenderChips();
+      lpRenderGroupContacts(document.getElementById('lp-s3-search').value);
+      lpGroupUpdateFooter();
+    }
+
+    function lpGroupRenderChips() {
+      const bar = document.getElementById('lp-s3-chips');
+      if (grpSel.size === 0) {
+        bar.style.display = 'none';
+        bar.innerHTML = '';
+        return;
+      }
+      bar.style.display = 'flex';
+      let html = '';
+      grpSel.forEach(id => {
+        const c = NC_CONTACTS.find(x => x.id === id);
+        if (!c) return;
+        html += `
+          <div class="lp-gc">
+            <div class="lp-gc-av" style="background:${c.color};">${c.ini}</div>
+            <span>${escapeHtml(c.name.split(' ')[0])}</span>
+            <button class="lp-gc-x" onclick="lpGroupRemove(${c.id})">
+              <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>`;
+      });
+      bar.innerHTML = html;
+    }
+
+    function lpGroupRemove(id) {
+      grpSel.delete(id);
+      lpGroupRenderChips();
+      lpRenderGroupContacts(document.getElementById('lp-s3-search').value);
+      lpGroupUpdateFooter();
+    }
+
+    function lpGroupUpdateFooter() {
+      const countEl = document.getElementById('lp-gm-count');
+      const nextBtn = document.getElementById('lp-gm-next');
+      if (grpSel.size === 0) {
+        countEl.textContent = 'Select members';
+        nextBtn.classList.remove('lp-gm-ok');
+      } else {
+        countEl.textContent = grpSel.size + ' member' + (grpSel.size > 1 ? 's' : '') + ' selected';
+        nextBtn.classList.add('lp-gm-ok');
+      }
+    }
+
+    function lpGroupNext() {
+      if (grpSel.size < 1) return;
+      document.getElementById('lp-gname').value = '';
+      document.getElementById('lp-gdesc').value = '';
+      document.getElementById('lp-create-btn').disabled = true;
+      const avEl = document.getElementById('lp-gi-av');
+      avEl.className = 'lp-gi-av lp-av-empty';
+      avEl.style.background = '';
+      document.getElementById('lp-av-empty-icon').style.display = '';
+      document.getElementById('lp-av-initials').style.display = 'none';
+      document.getElementById('lp-av-initials').textContent = '';
+      const total = grpSel.size + 1;
+      document.getElementById('lp-gi-member-count').textContent = total + ' member' + (total > 1 ? 's' : '') + ' (including you)';
+      document.getElementById('lp-track').style.transform = 'translateX(-804px)';
+      setTimeout(() => document.getElementById('lp-gname').focus(), 340);
+    }
+
+    function lpGroupInfoBack() {
+      document.getElementById('lp-track').style.transform = 'translateX(-536px)';
+    }
+
+    function lpUpdateGroupAvatar() {
+      const name = document.getElementById('lp-gname').value.trim();
+      const avEl = document.getElementById('lp-gi-av');
+      const emptyIcon = document.getElementById('lp-av-empty-icon');
+      const initialsEl = document.getElementById('lp-av-initials');
+      const createBtn = document.getElementById('lp-create-btn');
+
+      if (name) {
+        const parts = name.split(/\s+/).filter(Boolean);
+        const initials = parts.length >= 2
+          ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+          : parts[0].slice(0, 2).toUpperCase();
+        const grad = LP_GRAD[name.charCodeAt(0) % LP_GRAD.length];
+        avEl.className = 'lp-gi-av lp-av-filled';
+        avEl.style.background = `linear-gradient(135deg, ${grad[0]}, ${grad[1]})`;
+        emptyIcon.style.display = 'none';
+        initialsEl.textContent = initials;
+        initialsEl.style.display = '';
+        createBtn.disabled = false;
+      } else {
+        avEl.className = 'lp-gi-av lp-av-empty';
+        avEl.style.background = '';
+        emptyIcon.style.display = '';
+        initialsEl.style.display = 'none';
+        initialsEl.textContent = '';
+        createBtn.disabled = true;
+      }
+    }
+
+    function lpGroupCreate() {
+      const name = document.getElementById('lp-gname').value.trim();
+      if (!name) return;
+      grpSel.clear();
+      document.getElementById('lp-track').style.transform = 'translateX(0)';
+    }
+    // ===== END GROUP CREATION =====
+
+    // ===== CONV CONTEXT MENU =====
+    let _convMenuId = null;
+
+    function openConvMenu(id, type, e) {
+      e.stopPropagation();
+      const btn = e.currentTarget;
+      if (_convMenuId === id) { closeConvMenu(); return; }
+      closeConvMenu();
+      _convMenuId = id;
+      btn.closest('.dm-item').classList.add('menu-open');
+
+      const isDM = type === 'dm';
+      const menu = document.getElementById('conv-menu');
+
+      const pinSVG   = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M5 8.5A5.5 5.5 0 0 1 10.5 3h3A5.5 5.5 0 0 1 19 8.5v.5l1.5 3.5H3.5L5 9z"/></svg>`;
+      const hideSVG  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+      const groupSVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/><line x1="20" y1="8" x2="20" y2="14"/></svg>`;
+      const trashSVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+
+      menu.innerHTML = `
+        <button class="conv-menu-item" onclick="convPin('${id}')">${pinSVG}<span>Ghim hoi thoai</span></button>
+        <button class="conv-menu-item" onclick="convHide('${id}')">${hideSVG}<span>An cuoc tro chuyen</span></button>
+        ${isDM ? `<div class="conv-menu-sep"></div><button class="conv-menu-item" onclick="convAddToGroup('${id}')">${groupSVG}<span>Them vao nhom</span></button>` : ''}
+        <div class="conv-menu-sep"></div>
+        <button class="conv-menu-item danger" onclick="convDelete('${id}')">${trashSVG}<span>Xoa hoi thoai</span></button>
+      `;
+
+      const rect = btn.getBoundingClientRect();
+      menu.style.top  = (rect.bottom + 4) + 'px';
+      menu.style.left = Math.max(8, rect.right - 180) + 'px';
+      requestAnimationFrame(() => menu.classList.add('open'));
+    }
+
+    function closeConvMenu() {
+      if (!_convMenuId) return;
+      document.getElementById('conv-menu').classList.remove('open');
+      document.querySelectorAll('.dm-item.menu-open').forEach(el => el.classList.remove('menu-open'));
+      _convMenuId = null;
+    }
+
+    function convPin(id)    { closeConvMenu(); }
+    function convHide(id)   { closeConvMenu(); }
+    function convDelete(id) { closeConvMenu(); }
+
+    function convAddToGroup(convId) {
+      const conv = CONV_DATA.find(c => c.id === convId);
+      if (!conv) return;
+      closeConvMenu();
+      grpSel.clear();
+      const contact = NC_CONTACTS.find(c => c.name === conv.name);
+      if (contact) grpSel.add(contact.id);
+      document.getElementById('lp-s3-search').value = '';
+      lpGroupRenderChips();
+      lpRenderGroupContacts('');
+      lpGroupUpdateFooter();
+      document.getElementById('lp-track').style.transform = 'translateX(-536px)';
+      setTimeout(() => document.getElementById('lp-s3-search').focus(), 340);
+    }
+
+    document.addEventListener('click', function(e) {
+      const menu = document.getElementById('conv-menu');
+      if (_convMenuId && menu && !menu.contains(e.target)) closeConvMenu();
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && _convMenuId) closeConvMenu();
+    });
+    document.getElementById('lp-conv-list').addEventListener('scroll', closeConvMenu);
+
+    function openModal() {
+      const modal = document.getElementById('chat-modal');
+      const backdrop = document.getElementById('backdrop');
+      document.getElementById('reopen-btn').style.display = 'none';
+      modal.style.display = '';
+      backdrop.style.display = '';
+      modal.style.opacity = '0';
+      modal.style.transform = 'scale(0.985) translateY(10px)';
+      modal.offsetHeight;
+      modal.style.transition = 'opacity 0.25s cubic-bezier(0.16,1,0.3,1), transform 0.25s cubic-bezier(0.16,1,0.3,1)';
+      backdrop.style.transition = 'opacity 0.25s ease';
+      backdrop.style.opacity = '1';
+      modal.style.opacity = '1';
+      modal.style.transform = 'scale(1) translateY(0)';
+      setTimeout(() => messagesEl.scrollTop = messagesEl.scrollHeight, 50);
+    }
+  </script>
+  <div id="conv-menu" class="conv-menu"></div>
+</body>
+</html>
