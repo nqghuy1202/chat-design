@@ -1,0 +1,222 @@
+<!-- ============================================================
+     MESSENGER FULLSCREEN — HTML Shell
+     Paste vào Static Content Region trên APEX page
+     ============================================================ -->
+<div id="ms-root">
+
+  <!-- ── Left Panel ── -->
+  <div id="ms-left">
+    <div id="ms-lp-track">
+
+      <!-- ── S1: Danh sách hội thoại ── -->
+      <div id="ms-lp-s1">
+
+        <!-- App header -->
+        <div id="ms-lp-app-header">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div id="ms-app-logo">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="white">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </div>
+            <span style="font-weight:600;font-size:14px;color:#0F172A">Tin nhắn</span>
+          </div>
+          <button type="button" id="ms-compose-btn" title="Soạn tin nhắn mới" onclick="msOpenNewConv()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Search + Filter -->
+        <div id="ms-lp-header">
+          <div class="ms-search-wrap">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input type="text" id="ms-conv-search" placeholder="Tìm kiếm...">
+          </div>
+          <div id="ms-filter-row">
+            <button type="button" class="ms-filter-chip active" data-filter="ALL">Tất cả</button>
+            <button type="button" class="ms-filter-chip" data-filter="UNREAD">Chưa đọc</button>
+            <button type="button" class="ms-filter-chip" data-filter="GROUP">Nhóm</button>
+          </div>
+        </div>
+
+        <!-- Conversation list -->
+        <div id="ms-conv-list"></div>
+
+        <!-- User footer -->
+        <div id="ms-user-row">
+          <div id="ms-user-avatar"></div>
+          <div id="ms-user-info">
+            <span id="ms-user-name">Đang tải...</span>
+            <span id="ms-user-status-label" style="font-size:11px;color:#94A3B8;display:block;margin-top:1px"></span>
+          </div>
+        </div>
+
+      </div><!-- /ms-lp-s1 -->
+
+      <!-- ── S2: Chọn liên hệ (DM) ── -->
+      <div id="ms-lp-s2">
+
+        <!-- Header -->
+        <div class="ms-lp-sh">
+          <button type="button" class="ms-lp-back-btn" onclick="msNewConvBack()" title="Quay lại">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <span class="ms-lp-sh-title">Tin nhắn mới</span>
+        </div>
+
+        <!-- Search -->
+        <div class="ms-lp-search-wrap">
+          <div class="ms-search-wrap">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input type="text" id="ms-s2-search" placeholder="Tìm theo tên..." oninput="msS2Search(this.value)">
+          </div>
+        </div>
+
+        <!-- Contact list -->
+        <div id="ms-s2-contacts" class="ms-lp-list-wrap"></div>
+
+        <!-- Footer: Tạo nhóm -->
+        <div class="ms-lp-sf">
+          <button type="button" class="ms-lp-grp-btn" onclick="msOpenNewGroup()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            Tạo nhóm
+          </button>
+        </div>
+
+      </div><!-- /ms-lp-s2 -->
+
+      <!-- ── S3: Tạo nhóm (chọn thành viên + đặt tên) ── -->
+      <div id="ms-lp-s3">
+
+        <!-- Header -->
+        <div class="ms-lp-sh">
+          <button type="button" class="ms-lp-back-btn" onclick="msGroupBack()" title="Quay lại">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <span class="ms-lp-sh-title">Tạo nhóm</span>
+          <span class="ms-lp-step-pill">Bước 2</span>
+        </div>
+
+        <!-- Group name -->
+        <div class="ms-s3-name-wrap">
+          <input type="text" id="ms-group-name" class="ms-s3-name-input" placeholder="Tên nhóm..." oninput="msUpdateGroupCreateBtn()">
+        </div>
+
+        <!-- Chips -->
+        <div id="ms-s3-chips"></div>
+
+        <!-- Search -->
+        <div class="ms-lp-search-wrap" style="padding-top:6px">
+          <div class="ms-search-wrap">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input type="text" id="ms-s3-search" placeholder="Tìm thành viên..." oninput="msS3Search(this.value)">
+          </div>
+        </div>
+
+        <!-- Contact list -->
+        <div id="ms-s3-contacts" class="ms-lp-list-wrap"></div>
+
+        <!-- Footer: Tạo nhóm button -->
+        <div class="ms-lp-sf">
+          <button type="button" id="ms-create-group-btn" class="ms-lp-create-btn" disabled onclick="msCreateGroup()">
+            Tạo nhóm
+          </button>
+        </div>
+
+      </div><!-- /ms-lp-s3 -->
+
+    </div><!-- /ms-lp-track -->
+  </div><!-- /#ms-left -->
+
+
+  <!-- ── Center Panel ── -->
+  <div id="ms-center">
+
+    <!-- Empty state -->
+    <div id="ms-no-conv">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      <p>Chọn hội thoại để bắt đầu</p>
+    </div>
+
+    <!-- Chat header -->
+    <div id="ms-chat-header">
+      <div id="ms-chat-header-av"></div>
+      <div id="ms-chat-header-info">
+        <span id="ms-chat-header-name"></span>
+        <span id="ms-chat-header-sub"></span>
+      </div>
+      <div id="ms-chat-header-actions">
+        <button type="button" id="ms-toggle-info-btn" title="Thông tin hội thoại">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div id="ms-messages"></div>
+    <div id="ms-typing-indicator" style="display:none;"></div>
+
+    <!-- Input area -->
+    <div id="ms-input-area">
+      <div id="ms-reply-preview">
+        <div id="ms-reply-bar">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
+            <polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>
+          </svg>
+          <div style="flex:1;min-width:0">
+            <span id="ms-reply-name"></span>
+            <span id="ms-reply-body"></span>
+          </div>
+          <button type="button" id="ms-reply-cancel-btn" onclick="msCancelReply()" title="Hủy trả lời">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="ms-input-box">
+        <div id="ms-chat-input" contenteditable="true" data-placeholder="Nhập tin nhắn..."></div>
+        <div id="ms-input-row">
+          <div></div>
+          <button type="button" id="ms-send-btn" onclick="msSendMessage()" title="Gửi (Enter)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /#ms-center -->
+
+
+  <!-- ── Right Panel (info) ── -->
+  <div id="ms-right">
+    <div id="ms-right-header">
+      <span>Thông tin</span>
+      <button type="button" id="ms-close-info-btn" onclick="msToggleInfo()" title="Đóng">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div id="ms-info-content"></div>
+  </div>
+
+</div><!-- /#ms-root -->

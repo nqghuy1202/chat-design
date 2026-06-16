@@ -1,0 +1,17 @@
+{
+  "id": "ux.research",
+  "skillName": "research",
+  "title": "UX Research",
+  "version": "1.0.0",
+  "tags": ["ux", "research", "usability", "interviews", "synthesis"],
+  "createdAt": "2026-01-24",
+  "updatedAt": "2026-01-24",
+  "entry": "SKILL.md",
+  "references": [
+    "references/methods.md",
+    "references/ai-assisted.md",
+    "references/frameworks.md",
+    "references/examples.md"
+  ],
+  "dependsOn": []
+}

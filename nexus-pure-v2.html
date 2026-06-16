@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nexus Chat</title>
-  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -22,6 +21,7 @@
 
     *, *::before, *::after { box-sizing: border-box; }
     html, body { font-family: 'Outfit', system-ui, -apple-system, sans-serif; margin: 0; padding: 0; }
+    button { border: none; background: transparent; cursor: pointer; font-family: inherit; padding: 0; }
 
     /* Thin scrollbar */
     .thin-scroll::-webkit-scrollbar { width: 4px; }
@@ -1024,50 +1024,58 @@
     /* Msg action reply hover */
     .msg-action-btn[data-action="reply"]:hover { color: var(--c-main) !important; }
 
+    /* ===== PURE CSS EQUIVALENTS (replacing Tailwind utilities) ===== */
+    /* space-y-0.5 equivalent for conversation lists */
+    #lp-conv-list, #lp-s2-list, #lp-s3-list { display: flex; flex-direction: column; gap: 2px; }
+
+    /* hover:bg-slate-50 for right panel option rows */
+    .rp-opt-row:hover { background: #F8FAFC; }
+    /* Close button hover (was hover:bg-slate-100 hover:text-slate-700) */
+    #close-modal-btn:hover { background: #F1F5F9 !important; color: #334155 !important; }
+
   </style>
 </head>
-<body class="min-h-screen flex items-center justify-center" style="background: linear-gradient(135deg, #CBD5E1, #94A3B8);">
+<body style="min-height:100vh;display:flex;align-items:center;justify-content:center;background: linear-gradient(135deg, #CBD5E1, #94A3B8);">
 
   <!-- Background hint -->
-  <div class="fixed inset-0 flex items-center justify-center select-none opacity-30 pointer-events-none">
-    <div class="text-white text-xl font-semibold tracking-tight">Nexus Studio</div>
+  <div style="position:fixed;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;user-select:none;opacity:0.3;pointer-events:none;">
+    <div style="color:white;font-size:20px;font-weight:600;letter-spacing:-0.025em;">Nexus Studio</div>
   </div>
 
   <!-- Reopen button -->
-  <button id="reopen-btn" onclick="openModal()" style="display:none;"
-    class="fixed bottom-8 right-8 z-40 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg transition-colors">
+  <button id="reopen-btn" onclick="openModal()"
+    style="display:none;position:fixed;bottom:32px;right:32px;z-index:40;align-items:center;gap:8px;background:#2563EB;color:white;font-size:14px;font-weight:500;padding:10px 16px;border-radius:12px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1),0 4px 6px -2px rgba(0,0,0,0.05);border:none;cursor:pointer;">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
     Open Chat
   </button>
 
   <!-- Backdrop -->
-  <div id="backdrop" class="fixed inset-0 z-40" style="background: rgba(15,23,42,0.4); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"></div>
+  <div id="backdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:40;background: rgba(15,23,42,0.4); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"></div>
 
   <!-- =================== MODAL =================== -->
-  <div id="chat-modal" class="fixed z-50 modal-animate"
-    style="inset: 16px; max-width: 1360px; max-height: 860px; margin: auto;">
+  <div id="chat-modal" class="modal-animate"
+    style="position:fixed;z-index:50;top:16px;left:16px;right:16px;bottom:16px;max-width: 1360px; max-height: 860px; margin: auto;">
 
-    <div class="w-full h-full bg-white rounded-2xl shadow-2xl flex overflow-hidden"
-      style="border: 1px solid rgba(226,232,240,0.8); position:relative;">
+    <div style="width:100%;height:100%;background:white;border-radius:16px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);display:flex;overflow:hidden;border: 1px solid rgba(226,232,240,0.8); position:relative;">
 
       <!-- ============ LEFT PANEL ============ -->
-      <div class="flex flex-col flex-shrink-0" style="width: 268px; border-right: 1px solid #E2E8F0; background: #F8FAFC; overflow: hidden;">
+      <div style="display:flex;flex-direction:column;flex-shrink:0;width: 268px; border-right: 1px solid #E2E8F0; background: #F8FAFC; overflow: hidden;">
         <div id="lp-track">
         <!-- Screen 1: Conversations -->
         <div id="lp-s1">
 
         <!-- App Header -->
-        <div class="px-4 pt-4 pb-3 flex items-center justify-between" style="border-bottom: 1px solid #F1F5F9;">
-          <div class="flex items-center gap-2.5">
-            <div class="app-logo-icon w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-              style="background: linear-gradient(135deg, #2563EB, #1D4ED8);">
+        <div style="padding:16px 16px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom: 1px solid #F1F5F9;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="app-logo-icon"
+              style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background: linear-gradient(135deg, #2563EB, #1D4ED8);">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="white" fill-opacity="0.95">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
               </svg>
             </div>
-            <span class="font-semibold text-slate-900" style="font-size: 14px;">Messages</span>
+            <span style="font-weight:600;color:#0F172A;font-size: 14px;">Messages</span>
           </div>
-          <div class="flex items-center gap-0.5">
+          <div style="display:flex;align-items:center;gap:2px;">
 <button class="tb-btn" title="New conversation" onclick="openNewConv()">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -1077,7 +1085,7 @@
         </div>
 
         <!-- Search (opens global search) -->
-        <div class="px-3 pt-3 pb-2">
+        <div style="padding:12px 12px 8px;">
           <div class="search-wrap" onclick="openGlobalSearch()" style="cursor:pointer;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
@@ -1087,14 +1095,14 @@
         </div>
 
         <!-- Filter tabs -->
-        <div class="flex items-center gap-1 px-3 pb-2">
+        <div style="display:flex;align-items:center;gap:4px;padding:0 12px 8px;">
           <button class="filter-tab active">All</button>
           <button class="filter-tab">Unread</button>
           <button class="filter-tab">Groups</button>
         </div>
 
         <!-- Conversation List (rendered by JS) -->
-        <div id="lp-conv-list" class="flex-1 overflow-y-auto thin-scroll px-2 pb-2 space-y-0.5"></div>
+        <div id="lp-conv-list" class="thin-scroll" style="flex:1;overflow-y:auto;padding:0 8px 8px;"></div>
 
 
         <!-- Status Picker Popup -->
@@ -1123,14 +1131,14 @@
         </div>
 
         <!-- User Profile -->
-        <div class="px-3 py-3 flex items-center gap-2.5" style="border-top: 1px solid #E2E8F0; position:relative;">
-          <div class="relative flex-shrink-0 cursor-pointer" onclick="toggleStatusPicker(event)" title="Doi trang thai">
-            <div id="user-avatar" class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold" style="background: #2563EB;">MH</div>
-            <div id="user-status-dot" class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full status-online" style="border: 2px solid white;"></div>
+        <div style="padding:12px;display:flex;align-items:center;gap:10px;border-top: 1px solid #E2E8F0; position:relative;">
+          <div style="position:relative;flex-shrink:0;cursor:pointer;" onclick="toggleStatusPicker(event)" title="Doi trang thai">
+            <div id="user-avatar" style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;background: #2563EB;">MH</div>
+            <div id="user-status-dot" class="status-online" style="position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;border-radius:50%;border: 2px solid white;"></div>
           </div>
-          <div class="flex-1 min-w-0 cursor-pointer" onclick="toggleStatusPicker(event)">
-            <div class="text-slate-800 font-semibold truncate" style="font-size: 13px;">Minh Hoang</div>
-            <div id="user-status-label" class="text-slate-400" style="font-size: 10.5px;">Dang hoat dong</div>
+          <div style="flex:1;min-width:0;cursor:pointer;" onclick="toggleStatusPicker(event)">
+            <div style="color:#1E293B;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size: 13px;">Minh Hoang</div>
+            <div id="user-status-label" style="color:#94A3B8;font-size: 10.5px;">Dang hoat dong</div>
           </div>
           <button class="tb-btn" style="width:30px;height:30px;" title="Phim tat (Ctrl+/)" onclick="openShortcuts()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M8 14h8"/></svg>
@@ -1143,15 +1151,15 @@
         <div id="lp-s2" style="background: #F8FAFC;">
 
           <!-- S2 Header -->
-          <div class="flex items-center gap-2 px-3 pt-3.5 pb-3" style="border-bottom: 1px solid #F1F5F9; flex-shrink: 0;">
-            <button onclick="lpBack()" class="tb-btn flex-shrink-0" style="width:30px;height:30px;" title="Back">
+          <div style="display:flex;align-items:center;gap:8px;padding:14px 12px 12px;border-bottom: 1px solid #F1F5F9; flex-shrink: 0;">
+            <button onclick="lpBack()" class="tb-btn" style="flex-shrink:0;width:30px;height:30px;" title="Back">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
             <span style="font-size: 14px; font-weight: 700; color: #0F172A; flex: 1; letter-spacing: -0.01em;">New Conversation</span>
           </div>
 
           <!-- S2 Search -->
-          <div class="px-3 pt-3 pb-2" style="flex-shrink: 0;">
+          <div style="padding:12px 12px 8px;flex-shrink: 0;">
             <div class="search-wrap">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
@@ -1161,7 +1169,7 @@
           </div>
 
           <!-- Online pill -->
-          <div id="lp-online-strip" class="px-4 pb-2.5" style="flex-shrink: 0;">
+          <div id="lp-online-strip" style="padding:0 16px 10px;flex-shrink: 0;">
             <div style="display: inline-flex; align-items: center; gap: 5px; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 100px; padding: 3px 10px 3px 7px;">
               <span style="width: 6px; height: 6px; border-radius: 50%; background: #22C55E; flex-shrink: 0; display: inline-block;"></span>
               <span id="lp-online-count" style="font-size: 11px; font-weight: 600; color: #16A34A;"></span>
@@ -1169,10 +1177,10 @@
           </div>
 
           <!-- S2 Contact List -->
-          <div id="lp-s2-list" class="flex-1 overflow-y-auto thin-scroll px-2 pb-2"></div>
+          <div id="lp-s2-list" class="thin-scroll" style="flex:1;overflow-y:auto;padding:0 8px 8px;"></div>
 
           <!-- S2 Footer -->
-          <div class="px-3 py-3" style="border-top: 1px solid #E2E8F0; flex-shrink: 0;">
+          <div style="padding:12px;border-top: 1px solid #E2E8F0; flex-shrink: 0;">
             <button class="lp-grp-btn" onclick="lpOpenGroup()">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
@@ -1188,8 +1196,8 @@
         <div id="lp-s3" style="background: #F8FAFC;">
 
           <!-- S3 Header -->
-          <div class="flex items-center gap-2 px-3 pt-3.5 pb-3" style="border-bottom: 1px solid #F1F5F9; flex-shrink: 0;">
-            <button onclick="lpGroupBack()" class="tb-btn flex-shrink-0" style="width:30px;height:30px;" title="Back">
+          <div style="display:flex;align-items:center;gap:8px;padding:14px 12px 12px;border-bottom: 1px solid #F1F5F9; flex-shrink: 0;">
+            <button onclick="lpGroupBack()" class="tb-btn" style="flex-shrink:0;width:30px;height:30px;" title="Back">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
             <span style="font-size: 14px; font-weight: 700; color: #0F172A; flex: 1; letter-spacing: -0.01em;">Add Members</span>
@@ -1200,7 +1208,7 @@
           <div id="lp-s3-chips" style="display: none;"></div>
 
           <!-- S3 Search -->
-          <div class="px-3 pt-2.5 pb-2" style="flex-shrink: 0;">
+          <div style="padding:10px 12px 8px;flex-shrink: 0;">
             <div class="search-wrap">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               <input type="text" id="lp-s3-search" placeholder="Search members..." oninput="lpGroupSearch(this.value)" autocomplete="off">
@@ -1208,7 +1216,7 @@
           </div>
 
           <!-- S3 Contact list -->
-          <div id="lp-s3-list" class="flex-1 overflow-y-auto thin-scroll px-2 pb-2"></div>
+          <div id="lp-s3-list" class="thin-scroll" style="flex:1;overflow-y:auto;padding:0 8px 8px;"></div>
 
           <!-- S3 Footer -->
           <div class="lp-gm-footer">
@@ -1225,8 +1233,8 @@
         <div id="lp-s4" style="background: #F8FAFC; overflow-y: auto;" class="thin-scroll">
 
           <!-- S4 Header -->
-          <div class="flex items-center gap-2 px-3 pt-3.5 pb-3" style="border-bottom: 1px solid #F1F5F9; flex-shrink: 0; position: sticky; top: 0; background: #F8FAFC; z-index: 1;">
-            <button onclick="lpGroupInfoBack()" class="tb-btn flex-shrink-0" style="width:30px;height:30px;" title="Back">
+          <div style="display:flex;align-items:center;gap:8px;padding:14px 12px 12px;border-bottom: 1px solid #F1F5F9; flex-shrink: 0; position: sticky; top: 0; background: #F8FAFC; z-index: 1;">
+            <button onclick="lpGroupInfoBack()" class="tb-btn" style="flex-shrink:0;width:30px;height:30px;" title="Back">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
             <span style="font-size: 14px; font-weight: 700; color: #0F172A; flex: 1; letter-spacing: -0.01em;">New Group</span>
@@ -1273,7 +1281,7 @@
       </div><!-- /left panel -->
 
       <!-- ============ MAIN CHAT ============ -->
-      <div id="center-panel" class="flex-1 flex flex-col min-w-0 bg-white" style="position:relative;">
+      <div id="center-panel" style="flex:1;display:flex;flex-direction:column;min-width:0;background:white;position:relative;">
 
         <!-- Drop Overlay -->
         <div id="drop-overlay">
@@ -1285,23 +1293,22 @@
         </div>
 
         <!-- Chat Header -->
-        <div class="flex-shrink-0 px-5 flex items-center justify-between" style="height: 64px; border-bottom: 1px solid #E2E8F0;">
-          <div class="flex items-center gap-3">
-            <div class="relative" id="ch-av-wrap">
-              <div id="ch-avatar" class="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold"
-                style="background: #059669;">LT</div>
-              <div id="ch-status-dot" class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full status-online" style="border: 2px solid white;"></div>
+        <div style="flex-shrink:0;padding:0 20px;display:flex;align-items:center;justify-content:space-between;height: 64px; border-bottom: 1px solid #E2E8F0;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="position:relative;" id="ch-av-wrap">
+              <div id="ch-avatar" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:14px;font-weight:600;background: #059669;">LT</div>
+              <div id="ch-status-dot" class="status-online" style="position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;border-radius:50%;border: 2px solid white;"></div>
             </div>
             <div>
-              <div id="ch-name" class="text-slate-900 font-semibold" style="font-size: 14px;">Linh Tran</div>
-              <div id="ch-sub" class="flex items-center gap-1.5 text-slate-400" style="font-size: 11.5px;">
-                <span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block"></span>
+              <div id="ch-name" style="color:#0F172A;font-weight:600;font-size: 14px;">Linh Tran</div>
+              <div id="ch-sub" style="display:flex;align-items:center;gap:6px;color:#94A3B8;font-size: 11.5px;">
+                <span style="width:6px;height:6px;border-radius:50%;background:#4ADE80;display:inline-block;"></span>
                 Active now
               </div>
             </div>
           </div>
 
-          <div class="flex items-center gap-0.5">
+          <div style="display:flex;align-items:center;gap:2px;">
             <button class="tb-btn" style="width:32px;height:32px;" title="Search">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             </button>
@@ -1311,10 +1318,9 @@
                 <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/>
               </svg>
             </button>
-            <div class="w-px h-5 bg-slate-200 mx-1.5"></div>
-            <button onclick="closeModal()" title="Close"
-              class="flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-              style="width:32px;height:32px;">
+            <div style="width:1px;height:20px;background:#E2E8F0;margin-left:6px;margin-right:6px;"></div>
+            <button id="close-modal-btn" onclick="closeModal()" title="Close"
+              style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#94A3B8;border:none;cursor:pointer;background:transparent;transition:background 0.1s,color 0.1s;">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
               </svg>
@@ -1335,51 +1341,51 @@
         </div>
 
         <!-- Messages wrapper -->
-        <div class="flex-1 relative" style="overflow:hidden;">
+        <div style="flex:1;position:relative;overflow:hidden;">
           <!-- Jump to Latest -->
           <button id="jump-latest" class="jump-latest-btn" onclick="jumpToLatest()" title="Xem tin moi nhat">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             <div id="jump-badge" class="jump-badge"></div>
           </button>
 
-          <div id="messages" class="absolute inset-0 overflow-y-auto thin-scroll px-5 py-4" style="scroll-behavior:smooth;">
+          <div id="messages" class="thin-scroll" style="position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;padding:16px 20px;scroll-behavior:smooth;">
 
           <div class="date-sep">Today</div>
 
           <!-- MSG 1: Linh (start) -->
-          <div class="message-group px-2 py-2 -mx-2" data-msg-id="msg-1" style="margin-bottom: 2px;">
+          <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;" data-msg-id="msg-1" style="margin-bottom: 2px;">
             <div class="msg-actions">
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
             </div>
-            <div class="flex gap-3">
-              <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background: #059669;">LT</div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-baseline gap-2 mb-1">
-                  <span class="font-semibold text-slate-900" style="font-size: 13.5px;">Linh Tran</span>
-                  <span class="text-slate-400" style="font-size: 11px;">9:32 AM</span>
+            <div style="display:flex;gap:12px;">
+              <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background: #059669;">LT</div>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;">
+                  <span style="font-weight:600;color:#0F172A;font-size: 13.5px;">Linh Tran</span>
+                  <span style="color:#94A3B8;font-size: 11px;">9:32 AM</span>
                 </div>
-                <p class="text-slate-700 leading-relaxed" style="font-size: 13.5px;">Hey Minh! Quick question about the design system we talked about last week.</p>
+                <p style="color:#334155;line-height:1.625;font-size: 13.5px;">Hey Minh! Quick question about the design system we talked about last week.</p>
               </div>
             </div>
           </div>
 
           <!-- MSG 2: Linh (consecutive) -->
-          <div class="message-group px-2 py-1 -mx-2" data-msg-id="msg-2" style="margin-bottom: 6px;">
+          <div class="message-group" style="padding:4px 8px;margin-left:-8px;margin-right:-8px;" data-msg-id="msg-2" style="margin-bottom: 6px;">
             <div class="msg-actions">
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
             </div>
-            <div class="flex gap-3">
-              <div class="w-9 flex-shrink-0"></div>
-              <p class="text-slate-700 leading-relaxed flex-1" style="font-size: 13.5px;">I'm deciding which color token to use for hover states on card components. Should it match the primary accent, or stay neutral?</p>
+            <div style="display:flex;gap:12px;">
+              <div style="width:36px;flex-shrink:0;"></div>
+              <p style="color:#334155;line-height:1.625;flex:1;font-size: 13.5px;">I'm deciding which color token to use for hover states on card components. Should it match the primary accent, or stay neutral?</p>
             </div>
           </div>
 
           <!-- MSG 3: Minh (me) - right bubble -->
-          <div class="message-group msg-me-wrap px-2 py-2 -mx-2" data-msg-id="msg-3" style="margin-bottom: 2px; margin-top: 10px;">
+          <div class="message-group msg-me-wrap" style="padding:8px;margin-left:-8px;margin-right:-8px;" data-msg-id="msg-3" style="margin-bottom: 2px; margin-top: 10px;">
             <div class="msg-actions">
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
@@ -1394,7 +1400,7 @@
           </div>
 
           <!-- MSG 4: Minh (consecutive + code) - right aligned -->
-          <div class="message-group msg-me-wrap px-2 py-1.5 -mx-2" data-msg-id="msg-4" style="margin-bottom: 6px;">
+          <div class="message-group msg-me-wrap" style="padding:6px 8px;margin-left:-8px;margin-right:-8px;" data-msg-id="msg-4" style="margin-bottom: 6px;">
             <div class="msg-actions">
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
@@ -1422,20 +1428,20 @@
           </div>
 
           <!-- MSG 5: Linh + image -->
-          <div class="message-group px-2 py-2 -mx-2" data-msg-id="msg-5" style="margin-bottom: 2px; margin-top: 10px;">
+          <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;" data-msg-id="msg-5" style="margin-bottom: 2px; margin-top: 10px;">
             <div class="msg-actions">
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
             </div>
-            <div class="flex gap-3">
-              <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background: #059669;">LT</div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-baseline gap-2 mb-1">
-                  <span class="font-semibold text-slate-900" style="font-size: 13.5px;">Linh Tran</span>
-                  <span class="text-slate-400" style="font-size: 11px;">9:48 AM</span>
+            <div style="display:flex;gap:12px;">
+              <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background: #059669;">LT</div>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;">
+                  <span style="font-weight:600;color:#0F172A;font-size: 13.5px;">Linh Tran</span>
+                  <span style="color:#94A3B8;font-size: 11px;">9:48 AM</span>
                 </div>
-                <p class="text-slate-700 leading-relaxed" style="font-size: 13.5px;">Perfect! Updated the component. Here's a quick Figma preview:</p>
+                <p style="color:#334155;line-height:1.625;font-size: 13.5px;">Perfect! Updated the component. Here's a quick Figma preview:</p>
                 <a class="img-card" href="#" onclick="return false;">
                   <img src="https://picsum.photos/seed/design-system-figma/680/380" alt="Figma design preview" loading="lazy">
                 </a>
@@ -1444,16 +1450,16 @@
           </div>
 
           <!-- MSG 6: Linh + file -->
-          <div class="message-group px-2 py-1.5 -mx-2" data-msg-id="msg-6" style="margin-bottom: 6px;">
+          <div class="message-group" style="padding:6px 8px;margin-left:-8px;margin-right:-8px;" data-msg-id="msg-6" style="margin-bottom: 6px;">
             <div class="msg-actions">
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
             </div>
-            <div class="flex gap-3">
-              <div class="w-9 flex-shrink-0"></div>
-              <div class="flex-1 min-w-0">
-                <p class="text-slate-700 leading-relaxed" style="font-size: 13.5px;">Also attaching the updated token docs:</p>
+            <div style="display:flex;gap:12px;">
+              <div style="width:36px;flex-shrink:0;"></div>
+              <div style="flex:1;min-width:0;">
+                <p style="color:#334155;line-height:1.625;font-size: 13.5px;">Also attaching the updated token docs:</p>
                 <div class="file-card">
                   <div class="file-icon" style="background: #FEE2E2;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -1461,18 +1467,18 @@
                       <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
                     </svg>
                   </div>
-                  <div class="flex-1 min-w-0">
-                    <div class="text-slate-800 font-medium truncate" style="font-size: 13px;">design-tokens-v2.pdf</div>
-                    <div class="text-slate-400" style="font-size: 11px;">2.4 MB · PDF Document</div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="color:#1E293B;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size: 13px;">design-tokens-v2.pdf</div>
+                    <div style="color:#94A3B8;font-size: 11px;">2.4 MB · PDF Document</div>
                   </div>
-                  <button class="text-blue-600 hover:text-blue-700 font-medium flex-shrink-0 transition-colors" style="font-size: 12px;">Download</button>
+                  <button style="color:#2563EB;font-weight:500;flex-shrink:0;font-size: 12px;border:none;background:transparent;cursor:pointer;">Download</button>
                 </div>
               </div>
             </div>
           </div>
 
           <!-- MSG 7: Minh - right bubble -->
-          <div class="message-group msg-me-wrap px-2 py-2 -mx-2" data-msg-id="msg-7" style="margin-bottom: 2px; margin-top: 10px;">
+          <div class="message-group msg-me-wrap" style="padding:8px;margin-left:-8px;margin-right:-8px;" data-msg-id="msg-7" style="margin-bottom: 2px; margin-top: 10px;">
             <div class="msg-actions">
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
@@ -1487,21 +1493,21 @@
           </div>
 
           <!-- MSG 8: Linh + reactions -->
-          <div class="message-group px-2 py-2 -mx-2" data-msg-id="msg-8" style="margin-bottom: 6px; margin-top: 10px;">
+          <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;" data-msg-id="msg-8" style="margin-bottom: 6px; margin-top: 10px;">
             <div class="msg-actions">
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
               <button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
             </div>
-            <div class="flex gap-3">
-              <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background: #059669;">LT</div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-baseline gap-2 mb-1">
-                  <span class="font-semibold text-slate-900" style="font-size: 13.5px;">Linh Tran</span>
-                  <span class="text-slate-400" style="font-size: 11px;">9:54 AM</span>
+            <div style="display:flex;gap:12px;">
+              <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background: #059669;">LT</div>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;">
+                  <span style="font-weight:600;color:#0F172A;font-size: 13.5px;">Linh Tran</span>
+                  <span style="color:#94A3B8;font-size: 11px;">9:54 AM</span>
                 </div>
-                <p class="text-slate-700 leading-relaxed" style="font-size: 13.5px;">Will do! Should I also update the Storybook docs with the new interaction states?</p>
-                <div class="flex items-center gap-1.5 mt-2">
+                <p style="color:#334155;line-height:1.625;font-size: 13.5px;">Will do! Should I also update the Storybook docs with the new interaction states?</p>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:8px;">
                   <button class="reaction reacted" onclick="toggleReaction(this)">
                     <span>👍</span><span class="count">2</span>
                   </button>
@@ -1517,7 +1523,7 @@
           </div>
 
           <!-- MSG 9: Minh replies to Linh's first message -->
-          <div class="message-group msg-me-wrap px-2 py-2 -mx-2" data-msg-id="msg-9" style="margin-bottom: 2px; margin-top: 10px;">
+          <div class="message-group msg-me-wrap" style="padding:8px;margin-left:-8px;margin-right:-8px;" data-msg-id="msg-9" style="margin-bottom: 2px; margin-top: 10px;">
             <div class="msg-actions">
               <button class="msg-action-btn" title="React"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
               <button class="msg-action-btn" data-action="reply" title="Reply"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
@@ -1538,38 +1544,38 @@
           </div>
 
           <!-- MSG 10: Linh replies to Minh's msg-7 -->
-          <div class="message-group px-2 py-2 -mx-2" data-msg-id="msg-10" style="margin-bottom: 6px; margin-top: 10px;">
+          <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;" data-msg-id="msg-10" style="margin-bottom: 6px; margin-top: 10px;">
             <div class="msg-actions">
               <button class="msg-action-btn" title="React"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
               <button class="msg-action-btn" data-action="reply" title="Reply"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
               <button class="msg-action-btn" title="More"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
             </div>
-            <div class="flex gap-3">
-              <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background: #059669;">LT</div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-baseline gap-2 mb-1">
-                  <span class="font-semibold text-slate-900" style="font-size: 13.5px;">Linh Tran</span>
-                  <span class="text-slate-400" style="font-size: 11px;">9:58 AM</span>
+            <div style="display:flex;gap:12px;">
+              <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background: #059669;">LT</div>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;">
+                  <span style="font-weight:600;color:#0F172A;font-size: 13.5px;">Linh Tran</span>
+                  <span style="color:#94A3B8;font-size: 11px;">9:58 AM</span>
                 </div>
                 <div class="reply-quote-other" onclick="scrollToMsg('msg-7')">
                   <div class="rq-name">You</div>
                   <div class="rq-text">Looks great! The hierarchy reads much cleaner. Let's lock this in as the reference for the full component library review next sprint.</div>
                 </div>
-                <p class="text-slate-700 leading-relaxed" style="font-size: 13.5px;">Storybook docs are updated too - all interaction states are in now. Ready for sprint review!</p>
+                <p style="color:#334155;line-height:1.625;font-size: 13.5px;">Storybook docs are updated too - all interaction states are in now. Ready for sprint review!</p>
               </div>
             </div>
           </div>
 
           <!-- Typing indicator -->
-          <div id="typing-indicator" class="flex items-center gap-3 px-2 py-2 -mx-2" style="margin-top: 8px;">
-            <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0" style="background: #059669;">LT</div>
-            <div class="flex items-center gap-2.5">
-              <div class="flex items-center gap-1 rounded-xl px-3 py-2.5" style="background: #F1F5F9;">
-                <div class="typing-dot w-1.5 h-1.5 rounded-full bg-slate-400"></div>
-                <div class="typing-dot w-1.5 h-1.5 rounded-full bg-slate-400"></div>
-                <div class="typing-dot w-1.5 h-1.5 rounded-full bg-slate-400"></div>
+          <div id="typing-indicator" style="display:flex;align-items:center;gap:12px;padding:8px;margin-left:-8px;margin-right:-8px;margin-top: 8px;">
+            <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;background: #059669;">LT</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="display:flex;align-items:center;gap:4px;border-radius:12px;padding:10px 12px;background: #F1F5F9;">
+                <div class="typing-dot" style="width:6px;height:6px;border-radius:50%;background:#94A3B8;"></div>
+                <div class="typing-dot" style="width:6px;height:6px;border-radius:50%;background:#94A3B8;"></div>
+                <div class="typing-dot" style="width:6px;height:6px;border-radius:50%;background:#94A3B8;"></div>
               </div>
-              <span class="text-slate-400" style="font-size: 11.5px;">Linh is typing...</span>
+              <span style="color:#94A3B8;font-size: 11.5px;">Linh is typing...</span>
             </div>
           </div>
 
@@ -1577,7 +1583,7 @@
         </div>
 
         <!-- Input Area -->
-        <div class="flex-shrink-0 px-4 py-3" style="border-top: 1px solid #F1F5F9;">
+        <div style="flex-shrink:0;padding:12px 16px;border-top: 1px solid #F1F5F9;">
           <div class="input-box">
             <!-- File preview bar -->
             <div id="file-preview-bar"></div>
@@ -1593,11 +1599,11 @@
               </button>
             </div>
             <!-- Formatting toolbar -->
-            <div class="flex items-center gap-0.5 px-3 pt-2.5 pb-2" style="border-bottom: 1px solid #F8FAFC;">
+            <div style="display:flex;align-items:center;gap:2px;padding:10px 12px 8px;border-bottom: 1px solid #F8FAFC;">
               <button class="tb-btn" title="Bold"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg></button>
               <button class="tb-btn" title="Italic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg></button>
               <button class="tb-btn" title="Code"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>
-              <div class="w-px h-4 bg-slate-200 mx-1"></div>
+              <div style="width:1px;height:16px;background:#E2E8F0;margin-left:4px;margin-right:4px;"></div>
               <button class="tb-btn" title="Link"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
               <button class="tb-btn" title="List"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
             </div>
@@ -1608,8 +1614,8 @@
               style="min-height:44px;max-height:128px;overflow-y:auto;padding:10px 16px;font-size:13.5px;color:#1E293B;line-height:1.6;outline:none;font-family:'Outfit',system-ui,sans-serif;"></div>
 
             <!-- Bottom row -->
-            <div class="flex items-center justify-between px-3 pb-2.5 pt-1">
-              <div class="flex items-center gap-0.5">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 12px 10px;">
+              <div style="display:flex;align-items:center;gap:2px;">
                 <button class="tb-btn" title="Attach file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
                 <button class="tb-btn" title="Image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></button>
                 <div class="emoji-picker-wrap">
@@ -1628,7 +1634,7 @@
               </button>
             </div>
           </div>
-          <div class="flex items-center gap-1 mt-1.5 px-1" style="font-size:11px;color:#CBD5E1;">
+          <div style="display:flex;align-items:center;gap:4px;margin-top:6px;padding:0 4px;font-size:11px;color:#CBD5E1;">
             <kbd style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;padding:0 4px;font-size:10px;color:#94A3B8;font-family:monospace;">Enter</kbd>
             <span>to send</span>
             <span style="margin:0 4px;">·</span>
@@ -1639,7 +1645,7 @@
       </div>
 
       <!-- ============ RIGHT PANEL ============ -->
-      <div id="right-panel" class="right-panel flex flex-col" style="border-left: 1px solid #E2E8F0; background: #FAFAFA; overflow-y: auto;" class="thin-scroll">
+      <div id="right-panel" class="right-panel thin-scroll" style="display:flex;flex-direction:column;border-left: 1px solid #E2E8F0; background: #FAFAFA; overflow-y: auto;">
         <div id="rp-content"></div>
       </div>
 
@@ -1846,135 +1852,135 @@
     const CONV_MESSAGES = {
       'linh-tran': `
         <div class="date-sep">Hom nay</div>
-        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;">
+        <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#059669;">LT</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Linh Tran</span><span class="text-slate-400" style="font-size:11px;">9:32 SA</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Hey Minh! Minh dang can tu van ve design system minh dang lam. Co thoi gian khong?</p></div></div>
+          <div style="display:flex;gap:12px;"><div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background:#059669;">LT</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;"><span style="font-weight:600;color:#0F172A;font-size:13.5px;">Linh Tran</span><span style="color:#94A3B8;font-size:11px;">9:32 SA</span></div><p style="color:#334155;line-height:1.625;font-size:13.5px;">Hey Minh! Minh dang can tu van ve design system minh dang lam. Co thoi gian khong?</p></div></div>
         </div>
-        <div class="message-group px-2 py-1 -mx-2" style="margin-bottom:6px;">
+        <div class="message-group" style="padding:4px 8px;margin-left:-8px;margin-right:-8px;margin-bottom:6px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div class="flex gap-3"><div class="w-9 flex-shrink-0"></div><p class="text-slate-700 leading-relaxed flex-1" style="font-size:13.5px;">Dang can chon color token nao cho hover state tren card component. Nen dung accent hay neutral?</p></div>
+          <div style="display:flex;gap:12px;"><div style="width:36px;flex-shrink:0;"></div><p style="color:#334155;line-height:1.625;flex:1;font-size:13.5px;">Dang can chon color token nao cho hover state tren card component. Nen dung accent hay neutral?</p></div>
         </div>
-        <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+        <div class="message-group msg-me-wrap" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;margin-top:10px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
           <div style="display:flex;justify-content:flex-end;"><div style="max-width:72%;"><div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">9:45 SA</span></div><div class="msg-me-bubble">Dung neutral palette cho card hover. Accent chi danh cho primary action - giu visual hierarchy sach hon.</div></div></div>
         </div>
-        <div class="message-group msg-me-wrap px-2 py-1.5 -mx-2" style="margin-bottom:6px;">
+        <div class="message-group msg-me-wrap" style="padding:6px 8px;margin-left:-8px;margin-right:-8px;margin-bottom:6px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
           <div style="display:flex;justify-content:flex-end;"><div style="max-width:80%;"><div class="msg-me-bubble" style="margin-bottom:8px;border-radius:18px;">Day la token minh de xuat:</div><div class="code-block"><div class="code-block-header"><span class="code-lang">css</span><button class="code-copy" onclick="copyCode(this)">Copy</button></div><pre><code><span class="tok-selector">.card</span>:hover {
   <span class="tok-prop">background</span>: <span class="tok-val">var(--color-surface-hover)</span>; <span class="tok-comment">/* slate-100 */</span>
 }</code></pre></div></div></div>
         </div>
-        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+        <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;margin-top:10px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#059669;">LT</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Linh Tran</span><span class="text-slate-400" style="font-size:11px;">9:54 SA</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Cap nhat xong roi nhe! Should I also update Storybook docs with the new interaction states?</p><div class="flex items-center gap-1.5 mt-2"><button class="reaction reacted" onclick="toggleReaction(this)"><span>👍</span><span class="count">2</span></button><button class="reaction" onclick="addReaction(this)" style="padding:2px 7px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button></div></div></div>
+          <div style="display:flex;gap:12px;"><div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background:#059669;">LT</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;"><span style="font-weight:600;color:#0F172A;font-size:13.5px;">Linh Tran</span><span style="color:#94A3B8;font-size:11px;">9:54 SA</span></div><p style="color:#334155;line-height:1.625;font-size:13.5px;">Cap nhat xong roi nhe! Should I also update Storybook docs with the new interaction states?</p><div style="display:flex;align-items:center;gap:6px;margin-top:8px;"><button class="reaction reacted" onclick="toggleReaction(this)"><span>👍</span><span class="count">2</span></button><button class="reaction" onclick="addReaction(this)" style="padding:2px 7px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button></div></div></div>
         </div>
-        <div id="typing-indicator" class="flex items-center gap-3 px-2 py-2 -mx-2" style="margin-top:8px;">
-          <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0" style="background:#059669;">LT</div>
-          <div class="flex items-center gap-2.5"><div class="flex items-center gap-1 rounded-xl px-3 py-2.5" style="background:#F1F5F9;"><div class="typing-dot w-1.5 h-1.5 rounded-full bg-slate-400"></div><div class="typing-dot w-1.5 h-1.5 rounded-full bg-slate-400"></div><div class="typing-dot w-1.5 h-1.5 rounded-full bg-slate-400"></div></div><span class="text-slate-400" style="font-size:11.5px;">Linh dang go...</span></div>
+        <div id="typing-indicator" style="display:flex;align-items:center;gap:12px;padding:8px;margin-left:-8px;margin-right:-8px;margin-top:8px;">
+          <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;background:#059669;">LT</div>
+          <div style="display:flex;align-items:center;gap:10px;"><div style="display:flex;align-items:center;gap:4px;border-radius:12px;padding:10px 12px;background:#F1F5F9;"><div class="typing-dot" style="width:6px;height:6px;border-radius:50%;background:#94A3B8;"></div><div class="typing-dot" style="width:6px;height:6px;border-radius:50%;background:#94A3B8;"></div><div class="typing-dot" style="width:6px;height:6px;border-radius:50%;background:#94A3B8;"></div></div><span style="color:#94A3B8;font-size:11.5px;">Linh dang go...</span></div>
         </div>`,
 
       'minh-an': `
         <div class="date-sep">Hom nay</div>
-        <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom:2px;">
+        <div class="message-group msg-me-wrap" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
           <div style="display:flex;justify-content:flex-end;"><div style="max-width:72%;"><div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">9:10 SA</span></div><div class="msg-me-bubble">An oi, cai Dropdown component ban lam hom qua co van de voi keyboard navigation. Kiem tra lai giup minh nhe.</div></div></div>
         </div>
-        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+        <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;margin-top:10px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#7C3AED;">MA</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Minh An</span><span class="text-slate-400" style="font-size:11px;">9:18 SA</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">OK minh xem qua roi. Co ve bug o chỗ focus trap khi dong menu. De minh fix.</p></div></div>
+          <div style="display:flex;gap:12px;"><div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background:#7C3AED;">MA</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;"><span style="font-weight:600;color:#0F172A;font-size:13.5px;">Minh An</span><span style="color:#94A3B8;font-size:11px;">9:18 SA</span></div><p style="color:#334155;line-height:1.625;font-size:13.5px;">OK minh xem qua roi. Co ve bug o chỗ focus trap khi dong menu. De minh fix.</p></div></div>
         </div>
-        <div class="message-group px-2 py-1 -mx-2" style="margin-bottom:6px;">
+        <div class="message-group" style="padding:4px 8px;margin-left:-8px;margin-right:-8px;margin-bottom:6px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div class="flex gap-3"><div class="w-9 flex-shrink-0"></div><p class="text-slate-700 leading-relaxed flex-1" style="font-size:13.5px;">Fix xong roi nhe, dang push len PR. Nho review giup minh.</p></div>
+          <div style="display:flex;gap:12px;"><div style="width:36px;flex-shrink:0;"></div><p style="color:#334155;line-height:1.625;flex:1;font-size:13.5px;">Fix xong roi nhe, dang push len PR. Nho review giup minh.</p></div>
         </div>
-        <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+        <div class="message-group msg-me-wrap" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;margin-top:10px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
           <div style="display:flex;justify-content:flex-end;"><div style="max-width:72%;"><div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">9:50 SA</span></div><div class="msg-me-bubble">Da review xong. LGTM! Merge duoc roi. Component looks great, nice work!</div></div></div>
         </div>`,
 
       'quan-nguyen': `
         <div class="date-sep">Hom nay</div>
-        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;">
+        <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#DC2626;">QN</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Quan Nguyen</span><span class="text-slate-400" style="font-size:11px;">8:45 SA</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Minh oi, hom nay co meeting Q3 planning luc 3 gio chieu. Ban co available khong?</p></div></div>
+          <div style="display:flex;gap:12px;"><div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background:#DC2626;">QN</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;"><span style="font-weight:600;color:#0F172A;font-size:13.5px;">Quan Nguyen</span><span style="color:#94A3B8;font-size:11px;">8:45 SA</span></div><p style="color:#334155;line-height:1.625;font-size:13.5px;">Minh oi, hom nay co meeting Q3 planning luc 3 gio chieu. Ban co available khong?</p></div></div>
         </div>
-        <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+        <div class="message-group msg-me-wrap" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;margin-top:10px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
           <div style="display:flex;justify-content:flex-end;"><div style="max-width:72%;"><div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">8:52 SA</span></div><div class="msg-me-bubble">Co chu, meeting at 3 today?</div></div></div>
         </div>`,
 
       'thu-ha': `
         <div class="date-sep">Hom nay</div>
-        <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom:2px;">
+        <div class="message-group msg-me-wrap" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
           <div style="display:flex;justify-content:flex-end;"><div style="max-width:72%;"><div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">7:30 SA</span></div><div class="msg-me-bubble">Thu Ha oi, da review xong bai viet onboarding flow roi. Co mot so gop y nho, minh da comment tren doc. Check dum minh nhe.</div></div></div>
         </div>
-        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+        <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;margin-top:10px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#D97706;">TH</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Thu Ha</span><span class="text-slate-400" style="font-size:11px;">8:15 SA</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Cam on Minh nhieu nhe! Minh da doc het comments roi, rat huu ich. Se chinh sua va gui lai truoc 5 gio. Thanks for the review!</p><div class="flex items-center gap-1.5 mt-2"><button class="reaction reacted" onclick="toggleReaction(this)"><span>🙏</span><span class="count">1</span></button></div></div></div>
+          <div style="display:flex;gap:12px;"><div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background:#D97706;">TH</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;"><span style="font-weight:600;color:#0F172A;font-size:13.5px;">Thu Ha</span><span style="color:#94A3B8;font-size:11px;">8:15 SA</span></div><p style="color:#334155;line-height:1.625;font-size:13.5px;">Cam on Minh nhieu nhe! Minh da doc het comments roi, rat huu ich. Se chinh sua va gui lai truoc 5 gio. Thanks for the review!</p><div style="display:flex;align-items:center;gap:6px;margin-top:8px;"><button class="reaction reacted" onclick="toggleReaction(this)"><span>🙏</span><span class="count">1</span></button></div></div></div>
         </div>`,
 
       'design-team': `
         <div class="date-sep">3 ngay truoc</div>
-        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;">
+        <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#059669;">LT</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Linh Tran</span><span class="text-slate-400" style="font-size:11px;">Thu 3, 10:20 SA</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Team oi, minh vua update Figma file cho Sprint 8. Co them component DatePicker va TimePicker moi. Moi nguoi check va feedback nhe!</p></div></div>
+          <div style="display:flex;gap:12px;"><div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background:#059669;">LT</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;"><span style="font-weight:600;color:#0F172A;font-size:13.5px;">Linh Tran</span><span style="color:#94A3B8;font-size:11px;">Thu 3, 10:20 SA</span></div><p style="color:#334155;line-height:1.625;font-size:13.5px;">Team oi, minh vua update Figma file cho Sprint 8. Co them component DatePicker va TimePicker moi. Moi nguoi check va feedback nhe!</p></div></div>
         </div>
-        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+        <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;margin-top:10px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#7C3AED;">MA</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Minh An</span><span class="text-slate-400" style="font-size:11px;">10:35 SA</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Nice! DatePicker design dep lam. Minh se start implement sau khi merge PR hien tai.</p></div></div>
+          <div style="display:flex;gap:12px;"><div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background:#7C3AED;">MA</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;"><span style="font-weight:600;color:#0F172A;font-size:13.5px;">Minh An</span><span style="color:#94A3B8;font-size:11px;">10:35 SA</span></div><p style="color:#334155;line-height:1.625;font-size:13.5px;">Nice! DatePicker design dep lam. Minh se start implement sau khi merge PR hien tai.</p></div></div>
         </div>
-        <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+        <div class="message-group msg-me-wrap" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;margin-top:10px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div style="display:flex;justify-content:flex-end;"><div style="max-width:72%;"><div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">11:02 SA</span></div><div class="msg-me-bubble">Figma file da duoc cap nhat roi nhe. Co them component DatePicker va TimePicker moi. Moi nguoi check nhe!</div><div class="flex items-center gap-1.5 mt-2 justify-end"><button class="reaction reacted" onclick="toggleReaction(this)"><span>👍</span><span class="count">4</span></button><button class="reaction" onclick="toggleReaction(this)"><span>🎉</span><span class="count" style="color:#64748B;">2</span></button></div></div></div>
+          <div style="display:flex;justify-content:flex-end;"><div style="max-width:72%;"><div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">11:02 SA</span></div><div class="msg-me-bubble">Figma file da duoc cap nhat roi nhe. Co them component DatePicker va TimePicker moi. Moi nguoi check nhe!</div><div style="display:flex;align-items:center;gap:6px;margin-top:8px;justify-content:flex-end;"><button class="reaction reacted" onclick="toggleReaction(this)"><span>👍</span><span class="count">4</span></button><button class="reaction" onclick="toggleReaction(this)"><span>🎉</span><span class="count" style="color:#64748B;">2</span></button></div></div></div>
         </div>
-        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+        <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;margin-top:10px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#EA4335;">KN</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Khanh Nguyen</span><span class="text-slate-400" style="font-size:11px;">Thu 3, 2:15 CH</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Minh vua test DatePicker tren mobile, co mot so van de nho voi touch target size. Ghi issue len Jira nhe Linh.</p></div></div>
+          <div style="display:flex;gap:12px;"><div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background:#EA4335;">KN</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;"><span style="font-weight:600;color:#0F172A;font-size:13.5px;">Khanh Nguyen</span><span style="color:#94A3B8;font-size:11px;">Thu 3, 2:15 CH</span></div><p style="color:#334155;line-height:1.625;font-size:13.5px;">Minh vua test DatePicker tren mobile, co mot so van de nho voi touch target size. Ghi issue len Jira nhe Linh.</p></div></div>
         </div>`,
 
       'hd-2024-001': `
         <div class="date-sep">Hom qua, 13/06/2024</div>
-        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;">
+        <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#0891B2;">VA</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Nguyen Van A</span><span class="text-slate-400" style="font-size:11px;">14:28 CH</span></div><div class="doc-chip hoadon"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Hoa don</div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Chi Binh oi, em vua tao hoa don HD-2024-001 tu Cty TNHH ABC Technology, tong gia tri 12.500.000 VND. Chi xem va duyet giup em voi.</p></div></div>
+          <div style="display:flex;gap:12px;"><div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background:#0891B2;">VA</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;"><span style="font-weight:600;color:#0F172A;font-size:13.5px;">Nguyen Van A</span><span style="color:#94A3B8;font-size:11px;">14:28 CH</span></div><div class="doc-chip hoadon"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Hoa don</div><p style="color:#334155;line-height:1.625;font-size:13.5px;">Chi Binh oi, em vua tao hoa don HD-2024-001 tu Cty TNHH ABC Technology, tong gia tri 12.500.000 VND. Chi xem va duyet giup em voi.</p></div></div>
         </div>
-        <div class="message-group px-2 py-1 -mx-2" style="margin-bottom:6px;">
+        <div class="message-group" style="padding:4px 8px;margin-left:-8px;margin-right:-8px;margin-bottom:6px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div class="flex gap-3"><div class="w-9 flex-shrink-0"></div><div class="file-card"><div class="file-icon" style="background:#FEE2E2;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="1.8" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="flex-1 min-w-0"><div class="text-slate-800 font-medium truncate" style="font-size:13px;">hoa-don-abc-tech.pdf</div><div class="text-slate-400" style="font-size:11px;">1.2 MB · PDF</div></div></div></div>
+          <div style="display:flex;gap:12px;"><div style="width:36px;flex-shrink:0;"></div><div class="file-card"><div class="file-icon" style="background:#FEE2E2;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="1.8" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div style="flex:1;min-width:0;"><div style="color:#1E293B;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">hoa-don-abc-tech.pdf</div><div style="color:#94A3B8;font-size:11px;">1.2 MB · PDF</div></div></div></div>
         </div>
-        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+        <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;margin-top:10px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#D97706;">TB</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Nguyen Thi B</span><span class="text-slate-400" style="font-size:11px;">14:55 CH</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">OK chi se xem. Co bien ban nghiem thu chua em? Can kem theo de duyet.</p></div></div>
+          <div style="display:flex;gap:12px;"><div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background:#D97706;">TB</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;"><span style="font-weight:600;color:#0F172A;font-size:13.5px;">Nguyen Thi B</span><span style="color:#94A3B8;font-size:11px;">14:55 CH</span></div><p style="color:#334155;line-height:1.625;font-size:13.5px;">OK chi se xem. Co bien ban nghiem thu chua em? Can kem theo de duyet.</p></div></div>
         </div>
-        <div class="message-group px-2 py-1 -mx-2" style="margin-bottom:6px;">
+        <div class="message-group" style="padding:4px 8px;margin-left:-8px;margin-right:-8px;margin-bottom:6px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div class="flex gap-3"><div class="w-9 flex-shrink-0"></div><div class="file-card"><div class="file-icon" style="background:#DBEAFE;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div><div class="flex-1 min-w-0"><div class="text-slate-800 font-medium truncate" style="font-size:13px;">bien-ban-nghiem-thu.jpg</div><div class="text-slate-400" style="font-size:11px;">840 KB · Anh</div></div></div></div>
+          <div style="display:flex;gap:12px;"><div style="width:36px;flex-shrink:0;"></div><div class="file-card"><div class="file-icon" style="background:#DBEAFE;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div><div style="flex:1;min-width:0;"><div style="color:#1E293B;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">bien-ban-nghiem-thu.jpg</div><div style="color:#94A3B8;font-size:11px;">840 KB · Anh</div></div></div></div>
         </div>
-        <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+        <div class="message-group msg-me-wrap" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;margin-top:10px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
           <div style="display:flex;justify-content:flex-end;"><div style="max-width:72%;"><div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">15:12 CH</span></div><div class="msg-me-bubble">So luong trong hoa don khop voi don hang PO-2024-089. Vui long kiem tra lai so tien thue VAT - hoa don ghi 10% nhung hop dong quy dinh 8%.</div></div></div>
         </div>
-        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+        <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;margin-top:10px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#D97706;">TB</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Nguyen Thi B</span><span class="text-slate-400" style="font-size:11px;">15:40 CH</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Van A oi, em lien he lai nha cung cap de xuat lai hoa don voi thue VAT dung nhe. Chi chua the duyet duoc.</p></div></div>
+          <div style="display:flex;gap:12px;"><div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background:#D97706;">TB</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;"><span style="font-weight:600;color:#0F172A;font-size:13.5px;">Nguyen Thi B</span><span style="color:#94A3B8;font-size:11px;">15:40 CH</span></div><p style="color:#334155;line-height:1.625;font-size:13.5px;">Van A oi, em lien he lai nha cung cap de xuat lai hoa don voi thue VAT dung nhe. Chi chua the duyet duoc.</p></div></div>
         </div>`,
 
       'pc-2024-047': `
         <div class="date-sep">10/06/2024</div>
-        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;">
+        <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#DB2777;">TD</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Pham Thi D</span><span class="text-slate-400" style="font-size:11px;">09:10 SA</span></div><div class="doc-chip phieuchi"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Phieu chi</div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Chi Binh oi, em gui phieu chi PC-2024-047 xin thanh toan chi phi cong tac Da Nang ngay 08-09/06. Tong 3.200.000 VND. Chi duyet giup em voi.</p></div></div>
+          <div style="display:flex;gap:12px;"><div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background:#DB2777;">TD</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;"><span style="font-weight:600;color:#0F172A;font-size:13.5px;">Pham Thi D</span><span style="color:#94A3B8;font-size:11px;">09:10 SA</span></div><div class="doc-chip phieuchi"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Phieu chi</div><p style="color:#334155;line-height:1.625;font-size:13.5px;">Chi Binh oi, em gui phieu chi PC-2024-047 xin thanh toan chi phi cong tac Da Nang ngay 08-09/06. Tong 3.200.000 VND. Chi duyet giup em voi.</p></div></div>
         </div>
-        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+        <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;margin-top:10px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#D97706;">TB</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Nguyen Thi B</span><span class="text-slate-400" style="font-size:11px;">11:38 SA</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Da xem xong. Chi phi hop ly, du chung tu. Chi da duyet, chuyen len Giam doc ky nhe.</p></div></div>
+          <div style="display:flex;gap:12px;"><div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background:#D97706;">TB</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;"><span style="font-weight:600;color:#0F172A;font-size:13.5px;">Nguyen Thi B</span><span style="color:#94A3B8;font-size:11px;">11:38 SA</span></div><p style="color:#334155;line-height:1.625;font-size:13.5px;">Da xem xong. Chi phi hop ly, du chung tu. Chi da duyet, chuyen len Giam doc ky nhe.</p></div></div>
         </div>
-        <div class="message-group px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+        <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;margin-top:10px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
-          <div class="flex gap-3"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5" style="background:#059669;">VC</div><div class="flex-1 min-w-0"><div class="flex items-baseline gap-2 mb-1"><span class="font-semibold text-slate-900" style="font-size:13.5px;">Pham Van C</span><span class="text-slate-400" style="font-size:11px;">15:18 CH</span></div><p class="text-slate-700 leading-relaxed" style="font-size:13.5px;">Da ky duyet. Ke toan xuat tien cho em Pham Thi D nhe. Phieu chi da duoc phe duyet.</p></div></div>
+          <div style="display:flex;gap:12px;"><div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background:#059669;">VC</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;"><span style="font-weight:600;color:#0F172A;font-size:13.5px;">Pham Van C</span><span style="color:#94A3B8;font-size:11px;">15:18 CH</span></div><p style="color:#334155;line-height:1.625;font-size:13.5px;">Da ky duyet. Ke toan xuat tien cho em Pham Thi D nhe. Phieu chi da duoc phe duyet.</p></div></div>
         </div>
-        <div class="message-group msg-me-wrap px-2 py-2 -mx-2" style="margin-bottom:2px;margin-top:10px;">
+        <div class="message-group msg-me-wrap" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;margin-top:10px;">
           <div class="msg-actions"><button class="msg-action-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></div>
           <div style="display:flex;justify-content:flex-end;"><div style="max-width:72%;"><div style="text-align:right;margin-bottom:3px;padding-right:2px;"><span style="font-size:10.5px;color:#94A3B8;">15:45 CH</span></div><div class="msg-me-bubble">Da ghi nhan. Se tien hanh xuat tien cho em D trong hom nay. Cam on anh Giam doc.</div></div></div>
         </div>`,
@@ -2050,19 +2056,19 @@
         if (c.type === 'voucher') typeDot = `<div class="conv-type-dot voucher" style="border-color:${isActive?'#EFF6FF':'#F8FAFC'};"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>`;
 
         let statusDot = '';
-        if (c.type === 'dm' && c.online) statusDot = `<div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full status-online" style="border:2px solid ${isActive?'#EFF6FF':'#F8FAFC'};"></div>`;
+        if (c.type === 'dm' && c.online) statusDot = `<div class="status-online" style="position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;border-radius:50%;border:2px solid ${isActive?'#EFF6FF':'#F8FAFC'};"></div>`;
 
         const displayName = c.type === 'voucher' ? c.name : c.name;
-        const displaySub  = `<span style="color:${msgColor};font-size:11.5px;" class="truncate flex-1 min-w-0">${c.type==='group' ? c.lastSender+': '+c.lastMsg : c.lastMsg}</span>`;
+        const displaySub  = `<span style="color:${msgColor};font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;">${c.type==='group' ? c.lastSender+': '+c.lastMsg : c.lastMsg}</span>`;
 
-        return `<button class="w-full flex items-center gap-3 px-2.5 py-2.5 dm-item text-left${isActive?' dm-active':''}" style="background:${bg};" onclick="selectConv('${c.id}')">
-          <div class="relative flex-shrink-0">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold" style="background:${avatarBg};font-size:${c.type==='group'?'11px':'13px'};">${iniText}</div>
+        return `<button class="dm-item${isActive?' dm-active':''}" style="width:100%;display:flex;align-items:center;gap:12px;padding:10px;text-align:left;background:${bg};" onclick="selectConv('${c.id}')">
+          <div style="position:relative;flex-shrink:0;">
+            <div style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:600;background:${avatarBg};font-size:${c.type==='group'?'11px':'13px'};">${iniText}</div>
             ${statusDot}${typeDot}
           </div>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center justify-between mb-0.5">
-              <span class="font-semibold truncate" style="font-size:13px;color:${isActive?'#1D4ED8':c.unread?'#1E293B':'#475569'};">${escapeHtml(displayName)}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;">
+              <span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:${isActive?'#1D4ED8':c.unread?'#1E293B':'#475569'};">${escapeHtml(displayName)}</span>
               <div class="dm-ts-area">
                 <span class="dm-ts" style="color:${timeColor};">${c.time}</span>
                 <div class="dm-menu-btn" role="button" tabindex="-1" onclick="openConvMenu('${c.id}','${c.type}',event)" title="Tuy chon">
@@ -2070,7 +2076,7 @@
                 </div>
               </div>
             </div>
-            <div class="flex items-center gap-2 overflow-hidden">${displaySub}${c.unread ? `<span class="badge flex-shrink-0">${c.unread}</span>` : ''}</div>
+            <div style="display:flex;align-items:center;gap:8px;overflow:hidden;">${displaySub}${c.unread ? `<span class="badge flex-shrink-0">${c.unread}</span>` : ''}</div>
           </div>
         </button>`;
       }).join('');
@@ -2101,11 +2107,12 @@
         avatarEl.style.borderRadius = '50%';
         avatarEl.textContent = conv.ini;
         statusDot.style.display = '';
-        statusDot.className = `absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ${conv.online ? 'status-online' : 'status-offline'}`;
+        statusDot.className = conv.online ? 'status-online' : 'status-offline';
+        statusDot.style.cssText = 'position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;border-radius:50%;border:2px solid white;';
         nameEl.textContent = conv.name;
         subEl.innerHTML = conv.online
-          ? `<span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block"></span> Active now`
-          : `<span class="w-1.5 h-1.5 rounded-full bg-slate-300 inline-block"></span> Offline`;
+          ? `<span style="width:6px;height:6px;border-radius:50%;background:#4ADE80;display:inline-block;"></span> Active now`
+          : `<span style="width:6px;height:6px;border-radius:50%;background:#CBD5E1;display:inline-block;"></span> Offline`;
       } else if (conv.type === 'group') {
         avatarEl.style.background = `linear-gradient(135deg, ${conv.gradFrom}, ${conv.gradTo})`;
         avatarEl.style.borderRadius = '12px';
@@ -2175,24 +2182,24 @@
 
     function renderRPBot(conv) {
       return `
-        <div class="flex flex-col items-center pt-8 pb-5 px-4" style="border-bottom:1px solid #F1F5F9;">
-          <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-bold mb-3" style="background:linear-gradient(135deg,#2563EB,#1D4ED8);">E</div>
-          <div class="font-semibold text-slate-900 text-center" style="font-size:15px;">${escapeHtml(conv.name)}</div>
-          <div class="text-slate-400 text-center mt-0.5" style="font-size:12px;">Thong bao tu dong tu he thong ERP</div>
-          <div class="mt-2"><span style="font-size:11px;background:#EFF6FF;color:#2563EB;padding:2px 10px;border-radius:100px;font-weight:600;">Bot tu dong</span></div>
+        <div style="display:flex;flex-direction:column;align-items:center;padding:32px 16px 20px;border-bottom:1px solid #F1F5F9;">
+          <div style="width:64px;height:64px;border-radius:16px;display:flex;align-items:center;justify-content:center;color:white;font-size:24px;font-weight:700;margin-bottom:12px;background:linear-gradient(135deg,#2563EB,#1D4ED8);">E</div>
+          <div style="font-weight:600;color:#0F172A;text-align:center;font-size:15px;">${escapeHtml(conv.name)}</div>
+          <div style="color:#94A3B8;text-align:center;margin-top:2px;font-size:12px;">Thong bao tu dong tu he thong ERP</div>
+          <div style="margin-top:8px;"><span style="font-size:11px;background:#EFF6FF;color:#2563EB;padding:2px 10px;border-radius:100px;font-weight:600;">Bot tu dong</span></div>
         </div>
         <div class="rp-section">
-          <div class="px-4 py-3"><span class="font-semibold text-slate-700" style="font-size:12.5px;">Module ket noi</span></div>
+          <div style="padding:12px 16px;"><span style="font-weight:600;color:#334155;font-size:12.5px;">Module ket noi</span></div>
           <div id="section-bot-modules">
             ${['Ke Toan','Nhan Su','San Xuat','Quan Tri'].map((m,i) => {
               const colors = ['#2563EB','#16A34A','#D97706','#7C3AED'];
-              return `<div class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
-                <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:${colors[i]}15;">
+              return `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;transition:background 0.1s;">
+                <div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:${colors[i]}15;">
                   <div style="width:8px;height:8px;border-radius:50%;background:${colors[i]};"></div>
                 </div>
                 <span style="font-size:12.5px;color:#334155;">${m}</span>
-                <div class="ml-auto w-8 h-4 rounded-full" style="background:${colors[i]};display:flex;align-items:center;justify-content:center;">
-                  <div class="w-3 h-3 bg-white rounded-full" style="transform:translateX(4px);"></div>
+                <div style="margin-left:auto;width:32px;height:16px;border-radius:100px;background:${colors[i]};display:flex;align-items:center;justify-content:center;">
+                  <div style="width:12px;height:12px;background:white;border-radius:50%;transform:translateX(4px);"></div>
                 </div>
               </div>`;
             }).join('')}
@@ -2201,44 +2208,44 @@
     }
 
     function rpAction(icon, label) {
-      return `<button class="rp-action"><div class="rp-action-icon">${icon}</div><span class="text-slate-500" style="font-size:10.5px;">${label}</span></button>`;
+      return `<button class="rp-action"><div class="rp-action-icon">${icon}</div><span style="color:#64748B;font-size:10.5px;">${label}</span></button>`;
     }
 
     function rpInfoRow(iconHtml, label, value, valueClass) {
-      return `<div class="info-row"><div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background:#F1F5F9;">${iconHtml}</div><div class="flex-1 min-w-0"><div class="text-slate-400" style="font-size:10.5px;">${label}</div><div class="${valueClass||'text-slate-700'} font-medium" style="font-size:12.5px;">${value}</div></div></div>`;
+      return `<div class="info-row"><div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#F1F5F9;">${iconHtml}</div><div style="flex:1;min-width:0;"><div style="color:#94A3B8;font-size:10.5px;">${label}</div><div class="${valueClass||'text-slate-700'} font-medium" style="font-size:12.5px;">${value}</div></div></div>`;
     }
 
     function rpSharedMedia(seeds) {
-      return `<div class="rp-section"><div class="rp-section-header" onclick="toggleSection('section-media',this)"><div><span class="font-semibold text-slate-700" style="font-size:12.5px;">Anh & Video</span><span class="text-slate-400 ml-1.5" style="font-size:11px;">${seeds.length+8}</span></div><div class="flex items-center gap-2"><span class="text-blue-600 font-medium" style="font-size:11px;">Xem tat ca</span><svg id="chevron-section-media" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s;">${ICO.chevdown}</svg></div></div><div id="section-media"><div class="media-grid">${seeds.map((s,i)=>i<5?`<div class="media-thumb"><img src="https://picsum.photos/seed/${s}/120/120" alt="" loading="lazy"></div>`:`<div class="media-thumb" style="position:relative;"><img src="https://picsum.photos/seed/${s}/120/120" alt="" loading="lazy"><div style="position:absolute;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;border-radius:8px;"><span style="color:white;font-size:13px;font-weight:600;">+8</span></div></div>`).join('')}</div></div></div>`;
+      return `<div class="rp-section"><div class="rp-section-header" onclick="toggleSection('section-media',this)"><div><span style="font-weight:600;color:#334155;font-size:12.5px;">Anh & Video</span><span style="color:#94A3B8;margin-left:6px;font-size:11px;">${seeds.length+8}</span></div><div style="display:flex;align-items:center;gap:8px;"><span style="color:#2563EB;font-weight:500;font-size:11px;">Xem tat ca</span><svg id="chevron-section-media" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s;">${ICO.chevdown}</svg></div></div><div id="section-media"><div class="media-grid">${seeds.map((s,i)=>i<5?`<div class="media-thumb"><img src="https://picsum.photos/seed/${s}/120/120" alt="" loading="lazy"></div>`:`<div class="media-thumb" style="position:relative;"><img src="https://picsum.photos/seed/${s}/120/120" alt="" loading="lazy"><div style="position:absolute;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;border-radius:8px;"><span style="color:white;font-size:13px;font-weight:600;">+8</span></div></div>`).join('')}</div></div></div>`;
     }
 
     function rpSharedFiles(files) {
-      const rows = files.map((f,i) => `<div class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer"${i===files.length-1?' style="padding-bottom:14px;"':''}><div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background:${f.color};"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${f.stroke}" stroke-width="1.8" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="flex-1 min-w-0"><div class="text-slate-700 font-medium truncate" style="font-size:12px;">${escapeHtml(f.name)}</div><div class="text-slate-400" style="font-size:10.5px;">${f.size}</div></div><button class="tb-btn flex-shrink-0">${ICO.download}</button></div>`).join('');
-      return `<div class="rp-section"><div class="rp-section-header" onclick="toggleSection('section-files',this)"><div><span class="font-semibold text-slate-700" style="font-size:12.5px;">File dinh kem</span><span class="text-slate-400 ml-1.5" style="font-size:11px;">${files.length}</span></div><svg id="chevron-section-files" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s;">${ICO.chevdown}</svg></div><div id="section-files">${rows}</div></div>`;
+      const rows = files.map((f,i) => `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;transition:background 0.1s;"${i===files.length-1?' style="padding-bottom:14px;"':''}><div style="width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${f.color};"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${f.stroke}" stroke-width="1.8" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div style="flex:1;min-width:0;"><div style="color:#334155;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${escapeHtml(f.name)}</div><div style="color:#94A3B8;font-size:10.5px;">${f.size}</div></div><button class="tb-btn" style="flex-shrink:0;">${ICO.download}</button></div>`).join('');
+      return `<div class="rp-section"><div class="rp-section-header" onclick="toggleSection('section-files',this)"><div><span style="font-weight:600;color:#334155;font-size:12.5px;">File dinh kem</span><span style="color:#94A3B8;margin-left:6px;font-size:11px;">${files.length}</span></div><svg id="chevron-section-files" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s;">${ICO.chevdown}</svg></div><div id="section-files">${rows}</div></div>`;
     }
 
     // ===== DM RIGHT PANEL =====
     function renderRPDM(conv) {
-      const onlineDot  = conv.online ? `<div class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full status-online" style="border:2.5px solid #FAFAFA;"></div>` : '';
+      const onlineDot  = conv.online ? `<div class="status-online" style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;border-radius:50%;border:2.5px solid #FAFAFA;"></div>` : '';
       const statusText = conv.online
-        ? `<span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block"></span><span class="text-green-600 font-medium" style="font-size:11.5px;">Active now</span>`
-        : `<span class="text-slate-400" style="font-size:11.5px;">Offline</span>`;
+        ? `<span style="width:6px;height:6px;border-radius:50%;background:#4ADE80;display:inline-block;"></span><span style="color:#16A34A;font-weight:500;font-size:11.5px;">Active now</span>`
+        : `<span style="color:#94A3B8;font-size:11.5px;">Offline</span>`;
       return `
-        <div class="flex flex-col items-center pt-8 pb-5 px-4" style="border-bottom:1px solid #F1F5F9;">
-          <div class="relative mb-3">
-            <div class="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-semibold" style="background:${conv.color};">${conv.ini}</div>
+        <div style="display:flex;flex-direction:column;align-items:center;padding:32px 16px 20px;border-bottom:1px solid #F1F5F9;">
+          <div style="position:relative;margin-bottom:12px;">
+            <div style="width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:20px;font-weight:600;background:${conv.color};">${conv.ini}</div>
             ${onlineDot}
           </div>
-          <div class="font-semibold text-slate-900 text-center" style="font-size:15px;">${escapeHtml(conv.name)}</div>
-          <div class="text-slate-400 text-center mt-0.5" style="font-size:12px;">${escapeHtml(conv.role)}</div>
-          <div class="flex items-center gap-1.5 mt-1">${statusText}</div>
-          <div class="flex items-center gap-1 mt-5 w-full">
+          <div style="font-weight:600;color:#0F172A;text-align:center;font-size:15px;">${escapeHtml(conv.name)}</div>
+          <div style="color:#94A3B8;text-align:center;margin-top:2px;font-size:12px;">${escapeHtml(conv.role)}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">${statusText}</div>
+          <div style="display:flex;align-items:center;gap:4px;margin-top:20px;width:100%;">
             ${rpAction(ICO.bell,'Tat thong bao')}${rpAction(ICO.more,'Khac')}
           </div>
         </div>
         <div class="rp-section">
           <div class="rp-section-header" onclick="toggleSection('section-info',this)">
-            <span class="font-semibold text-slate-700" style="font-size:12.5px;">Thong tin lien lac</span>
+            <span style="font-weight:600;color:#334155;font-size:12.5px;">Thong tin lien lac</span>
             <svg id="chevron-section-info" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s;">${ICO.chevdown}</svg>
           </div>
           <div id="section-info">
@@ -2254,13 +2261,13 @@
           {name:'component-specs.docx',size:'845 KB',color:'#DBEAFE',stroke:'#2563EB'},
         ])}
         <div>
-          <div class="px-4 py-3"><span class="font-semibold text-slate-700" style="font-size:12.5px;">Tuy chon</span></div>
-          <div class="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer">
-            <div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#F1F5F9;">${ICO.bell}</div><span class="text-slate-700" style="font-size:12.5px;">Thong bao</span></div>
-            <div id="notif-toggle" onclick="toggleSwitch(this)" class="w-9 h-5 rounded-full cursor-pointer transition-colors flex items-center px-0.5" style="background:#2563EB;"><div class="w-4 h-4 bg-white rounded-full shadow-sm transition-transform" style="transform:translateX(16px);"></div></div>
+          <div style="padding:12px 16px;"><span style="font-weight:600;color:#334155;font-size:12.5px;">Tuy chon</span></div>
+          <div class="rp-opt-row" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;cursor:pointer;transition:background 0.1s;">
+            <div style="display:flex;align-items:center;gap:12px;"><div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#F1F5F9;">${ICO.bell}</div><span style="color:#334155;font-size:12.5px;">Thong bao</span></div>
+            <div id="notif-toggle" onclick="toggleSwitch(this)" style="width:36px;height:20px;border-radius:100px;cursor:pointer;display:flex;align-items:center;padding:0 2px;transition:background 0.15s;background:#2563EB;"><div style="width:16px;height:16px;background:white;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.1);transition:transform 0.15s;transform:translateX(16px);"></div></div>
           </div>
-          <div class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer"><div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#F1F5F9;">${ICO.pin}</div><span class="text-slate-700" style="font-size:12.5px;">Ghim cuoc tro chuyen</span></div>
-          <div class="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 transition-colors cursor-pointer" style="padding-bottom:20px;"><div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#FEF2F2;">${ICO.block}</div><span class="text-red-500 font-medium" style="font-size:12.5px;">Chan nguoi dung</span></div>
+          <div class="rp-opt-row" style="display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;transition:background 0.1s;"><div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#F1F5F9;">${ICO.pin}</div><span style="color:#334155;font-size:12.5px;">Ghim cuoc tro chuyen</span></div>
+          <div class="rp-opt-row" style="display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;transition:background 0.1s;padding-bottom:20px;"><div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#FEF2F2;">${ICO.block}</div><span style="color:#EF4444;font-weight:500;font-size:12.5px;">Chan nguoi dung</span></div>
         </div>`;
     }
 
@@ -2268,29 +2275,29 @@
     function renderRPGroup(conv) {
       const memberRows = conv.members.map(m => `
         <div class="rp-mbr">
-          <div class="relative flex-shrink-0">
-            <div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold" style="background:${m.color};font-size:11px;">${m.ini}</div>
-            ${m.online ? `<div class="absolute -bottom-0 -right-0 w-2 h-2 rounded-full status-online" style="border:1.5px solid #FAFAFA;"></div>` : ''}
+          <div style="position:relative;flex-shrink:0;">
+            <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:600;background:${m.color};font-size:11px;">${m.ini}</div>
+            ${m.online ? `<div class="status-online" style="position:absolute;bottom:0;right:0;width:8px;height:8px;border-radius:50%;border:1.5px solid #FAFAFA;"></div>` : ''}
           </div>
-          <div class="flex-1 min-w-0">
-            <div class="font-medium text-slate-800 truncate" style="font-size:12.5px;">${escapeHtml(m.name)}</div>
-            <div class="text-slate-400" style="font-size:11px;">${m.role}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:500;color:#1E293B;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;">${escapeHtml(m.name)}</div>
+            <div style="color:#94A3B8;font-size:11px;">${m.role}</div>
           </div>
         </div>`).join('');
 
       return `
-        <div class="flex flex-col items-center pt-8 pb-5 px-4" style="border-bottom:1px solid #F1F5F9;">
-          <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-lg font-bold mb-3" style="background:linear-gradient(135deg,${conv.gradFrom},${conv.gradTo});">${conv.ini}</div>
-          <div class="font-semibold text-slate-900 text-center" style="font-size:15px;">${escapeHtml(conv.name)}</div>
-          <div class="text-slate-400 text-center mt-0.5 px-4" style="font-size:12px;">${escapeHtml(conv.description)}</div>
-          <div class="flex items-center gap-1.5 mt-1.5"><span class="text-slate-500" style="font-size:12px;">${conv.members.length} thanh vien</span></div>
-          <div class="flex items-center gap-1 mt-5 w-full">
+        <div style="display:flex;flex-direction:column;align-items:center;padding:32px 16px 20px;border-bottom:1px solid #F1F5F9;">
+          <div style="width:64px;height:64px;border-radius:16px;display:flex;align-items:center;justify-content:center;color:white;font-size:18px;font-weight:700;margin-bottom:12px;background:linear-gradient(135deg,${conv.gradFrom},${conv.gradTo});">${conv.ini}</div>
+          <div style="font-weight:600;color:#0F172A;text-align:center;font-size:15px;">${escapeHtml(conv.name)}</div>
+          <div style="color:#94A3B8;text-align:center;margin-top:2px;padding:0 16px;font-size:12px;">${escapeHtml(conv.description)}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:6px;"><span style="color:#64748B;font-size:12px;">${conv.members.length} thanh vien</span></div>
+          <div style="display:flex;align-items:center;gap:4px;margin-top:20px;width:100%;">
             ${rpAction(ICO.adduser,'Them TV')}${rpAction(ICO.search,'Tim kiem')}${rpAction(ICO.bell,'Tat thong bao')}${rpAction(ICO.more,'Khac')}
           </div>
         </div>
         <div class="rp-section">
           <div class="rp-section-header" onclick="toggleSection('section-members',this)">
-            <div><span class="font-semibold text-slate-700" style="font-size:12.5px;">Thanh vien</span><span class="text-slate-400 ml-1.5" style="font-size:11px;">${conv.members.length}</span></div>
+            <div><span style="font-weight:600;color:#334155;font-size:12.5px;">Thanh vien</span><span style="color:#94A3B8;margin-left:6px;font-size:11px;">${conv.members.length}</span></div>
             <svg id="chevron-section-members" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s;">${ICO.chevdown}</svg>
           </div>
           <div id="section-members">${memberRows}<div style="padding-bottom:4px;"></div></div>
@@ -2301,12 +2308,12 @@
           {name:'design-review-notes.pdf',  size:'1.1 MB',color:'#FEE2E2',stroke:'#DC2626'},
         ])}
         <div>
-          <div class="px-4 py-3"><span class="font-semibold text-slate-700" style="font-size:12.5px;">Tuy chon</span></div>
-          <div class="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer">
-            <div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#F1F5F9;">${ICO.bell}</div><span class="text-slate-700" style="font-size:12.5px;">Thong bao</span></div>
-            <div id="notif-toggle" onclick="toggleSwitch(this)" class="w-9 h-5 rounded-full cursor-pointer transition-colors flex items-center px-0.5" style="background:#2563EB;"><div class="w-4 h-4 bg-white rounded-full shadow-sm transition-transform" style="transform:translateX(16px);"></div></div>
+          <div style="padding:12px 16px;"><span style="font-weight:600;color:#334155;font-size:12.5px;">Tuy chon</span></div>
+          <div class="rp-opt-row" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;cursor:pointer;transition:background 0.1s;">
+            <div style="display:flex;align-items:center;gap:12px;"><div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#F1F5F9;">${ICO.bell}</div><span style="color:#334155;font-size:12.5px;">Thong bao</span></div>
+            <div id="notif-toggle" onclick="toggleSwitch(this)" style="width:36px;height:20px;border-radius:100px;cursor:pointer;display:flex;align-items:center;padding:0 2px;transition:background 0.15s;background:#2563EB;"><div style="width:16px;height:16px;background:white;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.1);transition:transform 0.15s;transform:translateX(16px);"></div></div>
           </div>
-          <div class="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 transition-colors cursor-pointer" style="padding-bottom:20px;"><div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#FEF2F2;">${ICO.leave}</div><span class="text-red-500 font-medium" style="font-size:12.5px;">Roi nhom</span></div>
+          <div class="rp-opt-row" style="display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;transition:background 0.1s;padding-bottom:20px;"><div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#FEF2F2;">${ICO.leave}</div><span style="color:#EF4444;font-weight:500;font-size:12.5px;">Roi nhom</span></div>
         </div>`;
     }
 
@@ -2316,6 +2323,28 @@
       const statusColors = { pending:'#B45309', approved:'#16A34A', rejected:'#DC2626' };
       const statusBgs    = { pending:'#FEF3C7', approved:'#F0FDF4', rejected:'#FEF2F2' };
 
+      const apvSteps = conv.approvers.map((a, i) => {
+        const isLast = i === conv.approvers.length - 1;
+        let iconContent, nameClass, roleMeta;
+        if (a.status === 'done') {
+          iconContent = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.8" stroke-linecap="round">${ICO.check}</svg>`;
+          nameClass = 'done-text'; roleMeta = `<div class="apv-time">${a.time}</div>`;
+        } else if (a.status === 'active') {
+          iconContent = `<div style="width:10px;height:10px;border-radius:50%;background:#2563EB;"></div>`;
+          nameClass = 'active-text'; roleMeta = `<div class="apv-time" style="color:#2563EB;font-weight:500;">Dang cho duyet...</div>`;
+        } else {
+          iconContent = `<div style="width:8px;height:8px;border-radius:50%;background:#CBD5E1;"></div>`;
+          nameClass = 'wait-text'; roleMeta = `<div class="apv-time">Chua den luot</div>`;
+        }
+        return `<div class="apv-step">
+          <div class="apv-icon ${a.status==='done'?'done':a.status==='active'?'active':'waiting'}">${iconContent}</div>
+          <div class="apv-body">
+            <div class="apv-name ${nameClass}">${escapeHtml(a.name)}</div>
+            <div class="apv-role" style="font-size:11px;color:#94A3B8;">${escapeHtml(a.role)}</div>
+            ${roleMeta}
+          </div>
+        </div>`;
+      }).join('');
 
       const infoRows = [
         [ICO.cal,  'Ngay tao',    conv.date],
@@ -2323,34 +2352,41 @@
         [ICO.dept, 'Phong ban',   conv.department],
         [ICO.ref,  'Ma tham chieu',conv.reference],
         [ICO.cat,  'Danh muc',    conv.category],
-      ].map(([icon, label, val]) => `<div class="v-info-row"><div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background:#F1F5F9;">${icon}</div><div class="flex-1 min-w-0"><div class="v-info-label">${label}</div><div class="v-info-value">${escapeHtml(val)}</div></div></div>`).join('');
+      ].map(([icon, label, val]) => `<div class="v-info-row"><div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#F1F5F9;">${icon}</div><div style="flex:1;min-width:0;"><div class="v-info-label">${label}</div><div class="v-info-value">${escapeHtml(val)}</div></div></div>`).join('');
 
       return `
-        <div class="flex flex-col items-center pt-7 pb-5 px-4" style="border-bottom:1px solid #F1F5F9;">
-          <span class="vt-tag ${tagClass} mb-3">${conv.voucherLabel}</span>
-          <div class="font-semibold text-slate-900 text-center" style="font-size:15px;letter-spacing:-0.2px;">${escapeHtml(conv.name)}</div>
-          <div class="voucher-amount mt-2">${conv.amount} <span style="font-size:13px;font-weight:600;color:#64748B;">${conv.currency}</span></div>
-          <div class="mt-2"><span class="vs-badge ${conv.status}">${conv.statusLabel}</span></div>
-          <div class="flex items-center gap-2 mt-5 w-full">
+        <div style="display:flex;flex-direction:column;align-items:center;padding:28px 16px 20px;border-bottom:1px solid #F1F5F9;">
+          <span class="vt-tag ${tagClass}" style="margin-bottom:12px;">${conv.voucherLabel}</span>
+          <div style="font-weight:600;color:#0F172A;text-align:center;font-size:15px;letter-spacing:-0.2px;">${escapeHtml(conv.name)}</div>
+          <div class="voucher-amount" style="margin-top:8px;">${conv.amount} <span style="font-size:13px;font-weight:600;color:#64748B;">${conv.currency}</span></div>
+          <div style="margin-top:8px;"><span class="vs-badge ${conv.status}">${conv.statusLabel}</span></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:20px;width:100%;">
             <button style="flex:1;padding:8px;border-radius:10px;border:1.5px solid #E2E8F0;background:white;cursor:pointer;font-family:'Outfit',sans-serif;font-size:12.5px;font-weight:600;color:#334155;transition:background 0.1s;" onmouseover="this.style.background='#F8FAFC'" onmouseout="this.style.background='white'">Xem tai lieu</button>
             <button style="flex:1;padding:8px;border-radius:10px;border:none;background:#2563EB;color:white;cursor:pointer;font-family:'Outfit',sans-serif;font-size:12.5px;font-weight:600;transition:background 0.1s;" onmouseover="this.style.background='#1D4ED8'" onmouseout="this.style.background='#2563EB'">Tai xuong</button>
           </div>
         </div>
         <div class="rp-section">
           <div class="rp-section-header" onclick="toggleSection('section-vinfo',this)">
-            <span class="font-semibold text-slate-700" style="font-size:12.5px;">Thong tin chung tu</span>
+            <span style="font-weight:600;color:#334155;font-size:12.5px;">Thong tin chung tu</span>
             <svg id="chevron-section-vinfo" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s;">${ICO.chevdown}</svg>
           </div>
           <div id="section-vinfo">${infoRows}<div style="padding-bottom:4px;"></div></div>
         </div>
+        <div class="rp-section">
+          <div class="rp-section-header" onclick="toggleSection('section-apv',this)">
+            <span style="font-weight:600;color:#334155;font-size:12.5px;">Luong phe duyet</span>
+            <svg id="chevron-section-apv" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s;">${ICO.chevdown}</svg>
+          </div>
+          <div id="section-apv"><div class="apv-timeline">${apvSteps}</div></div>
+        </div>
         ${rpSharedFiles(conv.files)}
         <div>
-          <div class="px-4 py-3"><span class="font-semibold text-slate-700" style="font-size:12.5px;">Tuy chon</span></div>
-          <div class="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer">
-            <div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#F1F5F9;">${ICO.bell}</div><span class="text-slate-700" style="font-size:12.5px;">Thong bao</span></div>
-            <div onclick="toggleSwitch(this)" class="w-9 h-5 rounded-full cursor-pointer transition-colors flex items-center px-0.5" style="background:#2563EB;"><div class="w-4 h-4 bg-white rounded-full shadow-sm transition-transform" style="transform:translateX(16px);"></div></div>
+          <div style="padding:12px 16px;"><span style="font-weight:600;color:#334155;font-size:12.5px;">Tuy chon</span></div>
+          <div class="rp-opt-row" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;cursor:pointer;transition:background 0.1s;">
+            <div style="display:flex;align-items:center;gap:12px;"><div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#F1F5F9;">${ICO.bell}</div><span style="color:#334155;font-size:12.5px;">Thong bao</span></div>
+            <div onclick="toggleSwitch(this)" style="width:36px;height:20px;border-radius:100px;cursor:pointer;display:flex;align-items:center;padding:0 2px;transition:background 0.15s;background:#2563EB;"><div style="width:16px;height:16px;background:white;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.1);transition:transform 0.15s;transform:translateX(16px);"></div></div>
           </div>
-          <div class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer" style="padding-bottom:20px;"><div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#F1F5F9;">${ICO.pin}</div><span class="text-slate-700" style="font-size:12.5px;">Ghim cuoc tro chuyen</span></div>
+          <div class="rp-opt-row" style="display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;transition:background 0.1s;padding-bottom:20px;"><div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#F1F5F9;">${ICO.pin}</div><span style="color:#334155;font-size:12.5px;">Ghim cuoc tro chuyen</span></div>
         </div>`;
     }
 
@@ -2576,7 +2612,8 @@
         </div>` : '';
 
       const msgEl = document.createElement('div');
-      msgEl.className = 'message-group msg-me-wrap px-2 py-2 -mx-2';
+      msgEl.className = 'message-group msg-me-wrap';
+      msgEl.style.cssText += ';padding:8px;margin-left:-8px;margin-right:-8px;';
       msgEl.dataset.msgId = msgId;
       msgEl.style.cssText = 'margin-bottom: 2px; margin-top: 10px;';
       msgEl.innerHTML = `
@@ -3383,8 +3420,8 @@
           ? `style="background:#DBEAFE;border-radius:9px;color:#2563EB;font-size:10px;font-weight:700;"`
           : `style="background:${c.color};border-radius:50%;"`;
         return `<div class="fwd-item${sel?' selected':''}" onclick="selectFwdTarget('${c.id}')">
-          <div class="w-9 h-9 flex items-center justify-center text-white text-xs font-bold flex-shrink-0" ${av}>${c.ini}</div>
-          <div class="flex-1 min-w-0">
+          <div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:700;flex-shrink:0;" ${av}>${c.ini}</div>
+          <div style="flex:1;min-width:0;">
             <div style="font-size:13px;font-weight:600;color:#1E293B;">${escapeHtml(c.name)}</div>
             <div style="font-size:11.5px;color:#94A3B8;">${c.type==='group'?c.members.length+' thanh vien':c.type==='voucher'?c.statusLabel:''}</div>
           </div>
@@ -3497,23 +3534,23 @@
         if (c.type === 'group') typeDot = `<div class="conv-type-dot group" style="border-color:${isActive?'var(--c-tint)':'#F8FAFC'};"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.8" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg></div>`;
         if (c.type === 'voucher') typeDot = `<div class="conv-type-dot voucher" style="border-color:${isActive?'var(--c-tint)':'#F8FAFC'};"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>`;
         let statusDot = '';
-        if (c.type === 'dm' && c.online) statusDot = `<div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full status-online" style="border:2px solid ${isActive?'var(--c-tint)':'#F8FAFC'};"></div>`;
-        const displaySub = `<span style="color:${isActive?'var(--c-main)':'#64748B'};font-size:11.5px;" class="truncate flex-1 min-w-0">${c.type==='group' ? escapeHtml(c.lastSender)+': '+escapeHtml(c.lastMsg) : escapeHtml(c.lastMsg||'')}</span>`;
+        if (c.type === 'dm' && c.online) statusDot = `<div class="status-online" style="position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;border-radius:50%;border:2px solid ${isActive?'var(--c-tint)':'#F8FAFC'};"></div>`;
+        const displaySub = `<span style="color:${isActive?'var(--c-main)':'#64748B'};font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;">${c.type==='group' ? escapeHtml(c.lastSender)+': '+escapeHtml(c.lastMsg) : escapeHtml(c.lastMsg||'')}</span>`;
         const avatarRadius = (c.type === 'group' || c.type === 'bot') ? '10px' : c.type === 'voucher' ? '9px' : '50%';
-        return `<button class="w-full flex items-center gap-3 px-2.5 py-2.5 dm-item text-left${isActive?' dm-active':''}" style="background:${bg};" onclick="selectConv('${c.id}')">
-          <div class="relative flex-shrink-0">
-            <div class="w-10 h-10 flex items-center justify-center text-white font-semibold" style="background:${avatarBg};border-radius:${avatarRadius};font-size:${c.type==='group'?'11px':'13px'};">${c.ini}</div>
+        return `<button class="dm-item${isActive?' dm-active':''}" style="width:100%;display:flex;align-items:center;gap:12px;padding:10px;text-align:left;background:${bg};" onclick="selectConv('${c.id}')">
+          <div style="position:relative;flex-shrink:0;">
+            <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;color:white;font-weight:600;background:${avatarBg};border-radius:${avatarRadius};font-size:${c.type==='group'?'11px':'13px'};">${c.ini}</div>
             ${statusDot}${typeDot}
           </div>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center justify-between mb-0.5">
-              <span class="font-semibold truncate" style="font-size:13px;color:${isActive?'var(--c-main)':c.unread?'#1E293B':'#475569'};">${escapeHtml(c.name)}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;">
+              <span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:${isActive?'var(--c-main)':c.unread?'#1E293B':'#475569'};">${escapeHtml(c.name)}</span>
               <div class="dm-ts-area">
                 <span class="dm-ts" style="color:${timeColor};">${c.time||''}</span>
                 <div class="dm-menu-btn" role="button" tabindex="-1" onclick="openConvMenu('${c.id}','${c.type}',event)" title="Tuy chon"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></div>
               </div>
             </div>
-            <div class="flex items-center gap-2 overflow-hidden">${displaySub}${c.unread ? `<span class="badge flex-shrink-0">${c.unread}</span>` : ''}</div>
+            <div style="display:flex;align-items:center;gap:8px;overflow:hidden;">${displaySub}${c.unread ? `<span class="badge flex-shrink-0">${c.unread}</span>` : ''}</div>
           </div>
         </button>`;
       }
@@ -3552,7 +3589,7 @@
         </button>
       </div>
       <div id="fwd-quote" class="fwd-quote"></div>
-      <div class="fwd-search px-4 pt-2">
+      <div class="fwd-search" style="padding:0 16px 0 16px;padding-top:8px;">
         <div class="search-wrap"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input type="text" placeholder="Tim cuoc tro chuyen..." oninput="filterForwardList(this.value)" id="fwd-search-inp"></div>
       </div>
       <div class="fwd-list thin-scroll" id="fwd-list"></div>

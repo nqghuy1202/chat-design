@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Doc Chat — Preview</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: #E5E7EB;
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+
+  /* Giả lập APEX modal dialog */
+  .apex-modal-shell {
+    width: 1480px; max-width: 100%;
+    height: 860px; max-height: calc(100vh - 48px);
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 32px 80px -16px rgba(0,0,0,.32), 0 0 0 1px rgba(0,0,0,.08);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+
+  /* Titlebar APEX */
+  .apex-titlebar {
+    background: #1a2332;
+    padding: 0 16px;
+    height: 44px;
+    display: flex; align-items: center; gap: 10px;
+    flex-shrink: 0;
+  }
+  .apex-title { color: rgba(255,255,255,.9); font-size: 13.5px; font-weight: 500; flex: 1; }
+  .apex-close {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: rgba(255,255,255,.1); border: none; cursor: pointer;
+    display: grid; place-items: center; color: rgba(255,255,255,.7);
+    font-size: 16px; transition: background .15s;
+  }
+  .apex-close:hover { background: rgba(255,255,255,.18); color: #fff; }
+
+  /* Doc Chat content area */
+  #doc-chat-root {
+    flex: 1; min-height: 0;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Switcher tabs ── */
+  .preview-tabs {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: rgba(17,24,39,.88); backdrop-filter: blur(8px);
+    border-radius: 999px; padding: 4px;
+    display: flex; gap: 2px; z-index: 9999;
+    box-shadow: 0 8px 24px rgba(0,0,0,.3);
+  }
+  .preview-tab {
+    padding: 6px 16px; border-radius: 999px; border: none;
+    font-size: 12.5px; font-weight: 500; cursor: pointer;
+    color: rgba(255,255,255,.6); background: transparent;
+    transition: background .15s, color .15s; font-family: inherit;
+  }
+  .preview-tab.active { background: #fff; color: #111; }
+</style>
+<link rel="stylesheet" href="doc-chat.css">
+</head>
+<body>
+
+<div class="apex-modal-shell">
+  <!-- Titlebar giả lập APEX dialog -->
+  <div class="apex-titlebar">
+    <i class="fa fa-comments" style="color:rgba(255,255,255,.5);font-size:13px"></i>
+    <span class="apex-title">Trao đổi — Đơn hàng bán: SO-2601/010</span>
+    <button class="apex-close">×</button>
+  </div>
+
+  <!-- Doc Chat Root -->
+  <div id="doc-chat-root">
+    <div class="modal">
+
+      <!-- Context bar -->
+      <div class="dc-ctx-bar">
+        <i class="fa fa-file-invoice" style="color:var(--primary);font-size:11px"></i>
+        <span style="font-weight:600;color:var(--primary)">SO-2601/010</span>
+        <span style="color:var(--text-3)">·</span>
+        <span>Đơn hàng bán</span>
+        <span style="color:var(--text-3)">·</span>
+        <span style="color:var(--text-3)">Công ty TNHH Thương mại Phú Thịnh</span>
+      </div>
+
+      <!-- 3-column body -->
+      <div class="modal-body with-info" id="dc-body">
+
+        <!-- ══ LEFT: Conversation list ══ -->
+        <div class="convo-pane">
+          <div id="dc-list-screen" class="dc-screen">
+
+            <!-- Toolbar -->
+            <div class="convo-toolbar">
+              <div class="convo-search">
+                <i class="fa fa-search" style="font-size:12px;flex-shrink:0"></i>
+                <input id="dc-conv-search" type="text" placeholder="Tìm hội thoại...">
+              </div>
+              <div class="convo-tabs">
+                <button class="convo-tab active" data-filter="ALL">
+                  <i class="fa fa-layer-group" style="font-size:11px"></i> Tất cả
+                </button>
+                <button class="convo-tab" data-filter="UNREAD">
+                  Chưa đọc <span style="background:var(--primary);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:0 5px;line-height:16px">3</span>
+                </button>
+                <button class="convo-tab" data-filter="CHANNEL">
+                  <i class="fa fa-users" style="font-size:11px"></i> Nhóm
+                </button>
+              </div>
+            </div>
+
+            <!-- Conv list -->
+            <div id="dc-conv-list">
+              <div class="convo-list">
+                <div class="convo-section-label">Chứng từ này</div>
+
+                <!-- Conv item active -->
+                <div class="convo-item active" data-conv-id="1">
+                  <div class="convo-avatar-wrap">
+                    <div class="convo-avatar group" style="font-size:11px">
+                      <i class="fa fa-file-invoice"></i>
+                    </div>
+                  </div>
+                  <div class="convo-content">
+                    <div class="convo-row1">
+                      <span class="convo-name">SO-2601/010 — Thảo luận</span>
+                      <span class="convo-time">10:32</span>
+                    </div>
+                    <div class="convo-row2">
+                      <span class="convo-preview"><span class="convo-sender-name">Huy:</span> Anh ơi, khách hàng xác nhận...</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Conv item unread -->
+                <div class="convo-item unread" data-conv-id="2">
+                  <div class="convo-avatar-wrap">
+                    <div class="convo-avatar" style="background:hsl(141,55%,45%)">T</div>
+                    <div class="convo-sender-badge" style="background:hsl(188,55%,45%)">N</div>
+                  </div>
+                  <div class="convo-content">
+                    <div class="convo-row1">
+                      <span class="convo-name">Trần Thị Mai</span>
+                      <span class="convo-time">09:15</span>
+                    </div>
+                    <div class="convo-row2">
+                      <span class="convo-preview">Đã duyệt đơn hàng, chờ xuất kho</span>
+                      <div class="convo-meta">
+                        <span class="convo-badge">2</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="convo-section-label" style="margin-top:4px">Khác</div>
+
+                <!-- Conv item normal -->
+                <div class="convo-item" data-conv-id="3">
+                  <div class="convo-avatar-wrap">
+                    <div class="convo-avatar group">KH</div>
+                  </div>
+                  <div class="convo-content">
+                    <div class="convo-row1">
+                      <span class="convo-name">Nhóm Kinh Doanh Q1</span>
+                      <span class="convo-time">Hôm qua</span>
+                    </div>
+                    <div class="convo-row2">
+                      <span class="convo-preview"><span class="convo-sender-name">Long:</span> Meeting lúc 2h chiều nha mọi người</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="convo-item" data-conv-id="4">
+                  <div class="convo-avatar-wrap">
+                    <div class="convo-avatar" style="background:hsl(329,55%,55%)">L</div>
+                    <div class="convo-avatar .presence"></div>
+                  </div>
+                  <div class="convo-content">
+                    <div class="convo-row1">
+                      <span class="convo-name">Nguyễn Văn Long</span>
+                      <span class="convo-time">Hôm qua</span>
+                    </div>
+                    <div class="convo-row2">
+                      <span class="convo-preview">Ok anh, em sẽ gửi báo giá ngay</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="convo-item" data-conv-id="5">
+                  <div class="convo-avatar-wrap">
+                    <div class="convo-avatar" style="background:hsl(47,55%,52%)">P</div>
+                  </div>
+                  <div class="convo-content">
+                    <div class="convo-row1">
+                      <span class="convo-name">Lê Thị Phương</span>
+                      <span class="convo-time">25/06</span>
+                    </div>
+                    <div class="convo-row2">
+                      <span class="convo-preview">Tài liệu kỹ thuật đã upload lên hệ thống</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="dc-list-actions">
+              <button id="dc-btn-dm" class="btn-ghost">
+                <i class="fa fa-comment" style="font-size:12px"></i> Nhắn tin
+              </button>
+              <button id="dc-btn-group" class="btn-primary">
+                <i class="fa fa-users" style="font-size:12px"></i> Tạo nhóm
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ CENTER: Chat pane ══ -->
+        <div class="chat-pane">
+
+          <!-- Header -->
+          <div class="chat-head" id="dc-chat-head">
+            <div class="chat-head-avatar group" style="font-size:11px">
+              <i class="fa fa-file-invoice"></i>
+            </div>
+            <div class="chat-head-info">
+              <div class="chat-head-title" id="dc-chat-head-title">
+                SO-2601/010 — Thảo luận
+                <span style="background:var(--info-50);color:var(--info);font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;border:1px solid rgba(53,126,235,.15)">Nhóm</span>
+              </div>
+              <div class="chat-head-sub">5 thành viên · 2 đang online</div>
+            </div>
+            <div class="chat-head-actions">
+              <button class="icon-btn" id="dc-btn-search-toggle" title="Tìm trong hội thoại">
+                <i class="fa fa-search" style="font-size:13px"></i>
+              </button>
+              <button class="icon-btn active" id="dc-btn-info" title="Thông tin">
+                <i class="fa fa-info-circle" style="font-size:13px"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Search bar (hidden by default) -->
+          <div class="chat-search-bar" id="dc-msg-search-bar" style="display:none">
+            <input type="text" id="dc-msg-search-input" placeholder="Tìm trong hội thoại...">
+          </div>
+
+          <!-- Messages -->
+          <div class="chat-messages" id="dc-messages">
+
+            <div class="chat-day-divider">25 tháng 6, 2026</div>
+
+            <!-- Message - theirs -->
+            <div class="msg-row">
+              <div class="msg-avatar" style="background:hsl(141,55%,45%)">M</div>
+              <div class="msg-col">
+                <div class="msg-meta">
+                  <span class="msg-meta-name">Trần Thị Mai</span>
+                  <span class="msg-meta-role">Kế toán</span>
+                  <span class="msg-meta-time">09:10</span>
+                </div>
+                <div class="msg-bubble">
+                  Chào anh Huy, đơn <span class="doc-tag"><i class="fa fa-file-invoice" style="font-size:10px"></i> SO-2601/010</span> đã được phòng kế toán duyệt xong. Anh kiểm tra lại giá trị cuối cùng giúp em nhé.
+                </div>
+                <div class="msg-hover-actions">
+                  <button class="msg-hover-action" data-reply-id="101" data-reply-body="đơn SO-2601/010 đã được phòng kế toán duyệt xong">
+                    <i class="fa fa-reply" style="font-size:12px"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Message - mine -->
+            <div class="msg-row mine">
+              <div class="msg-avatar" style="background:hsl(188,55%,45%)">H</div>
+              <div class="msg-col">
+                <div class="msg-meta" style="flex-direction:row-reverse">
+                  <span class="msg-meta-name">Nguyễn Quốc Huy</span>
+                  <span class="msg-meta-time">09:18</span>
+                </div>
+                <div class="msg-bubble">
+                  Cảm ơn chị Mai. Tổng giá trị là 245,600,000đ, đã bao gồm VAT 10%. Anh xác nhận đúng rồi ạ.
+                </div>
+                <div class="msg-seen">✓ Đã xem</div>
+                <div class="msg-hover-actions">
+                  <button class="msg-hover-action" data-reply-id="102" data-reply-body="Tổng giá trị là 245,600,000đ">
+                    <i class="fa fa-reply" style="font-size:12px"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Message with reply context -->
+            <div class="msg-row">
+              <div class="msg-avatar" style="background:hsl(329,55%,55%)">L</div>
+              <div class="msg-col">
+                <div class="msg-meta">
+                  <span class="msg-meta-name">Nguyễn Văn Long</span>
+                  <span class="msg-meta-role">Kinh doanh</span>
+                  <span class="msg-meta-time">09:45</span>
+                </div>
+                <div class="msg-reply-context">
+                  <span class="name">Nguyễn Quốc Huy:</span>
+                  <span class="body"> Tổng giá trị là 245,600,000đ, đã bao gồm VAT 10%</span>
+                </div>
+                <div class="msg-bubble">
+                  Khách hàng đã xác nhận số lượng và giá. Mình có thể tiến hành xuất kho được rồi anh ơi.
+                </div>
+                <div class="msg-hover-actions">
+                  <button class="msg-hover-action">
+                    <i class="fa fa-reply" style="font-size:12px"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="chat-day-divider">Hôm nay</div>
+
+            <div class="msg-row">
+              <div class="msg-avatar" style="background:hsl(47,55%,52%)">P</div>
+              <div class="msg-col">
+                <div class="msg-meta">
+                  <span class="msg-meta-name">Lê Thị Phương</span>
+                  <span class="msg-meta-role">Xuất nhập kho</span>
+                  <span class="msg-meta-time">08:30</span>
+                </div>
+                <div class="msg-bubble">
+                  Phiếu xuất kho <span class="doc-tag"><i class="fa fa-file" style="font-size:10px"></i> PXK-2601/005</span> đã được tạo. Xe giao hàng lúc 14:00 hôm nay.
+                </div>
+                <div class="msg-hover-actions">
+                  <button class="msg-hover-action">
+                    <i class="fa fa-reply" style="font-size:12px"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mine latest -->
+            <div class="msg-row mine">
+              <div class="msg-avatar" style="background:hsl(188,55%,45%)">H</div>
+              <div class="msg-col">
+                <div class="msg-meta" style="flex-direction:row-reverse">
+                  <span class="msg-meta-name">Nguyễn Quốc Huy</span>
+                  <span class="msg-meta-time">10:32</span>
+                </div>
+                <div class="msg-bubble">
+                  Anh ơi, khách hàng xác nhận đã nhận hàng. Chị Phương cập nhật trạng thái giao thành công giúp anh nhé 🙏
+                </div>
+                <div class="msg-hover-actions">
+                  <button class="msg-hover-action">
+                    <i class="fa fa-reply" style="font-size:12px"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Typing indicator -->
+          <div class="typing-row" id="dc-typing" style="display:none">
+            <div class="msg-avatar hidden" style="width:30px;height:30px"></div>
+            <div class="typing-bubble">
+              <div class="typing-dot"></div>
+              <div class="typing-dot"></div>
+              <div class="typing-dot"></div>
+              <span class="typing-text" id="dc-typing-text">Phương đang nhập...</span>
+            </div>
+          </div>
+
+          <!-- Composer -->
+          <div class="composer-wrap" id="dc-compose-area">
+            <!-- Reply banner (hidden) -->
+            <div class="composer-reply-banner" id="dc-reply-banner" style="display:none">
+              <i class="fa fa-reply" style="font-size:11px;color:var(--primary)"></i>
+              <span class="who">Trả lời Trần Thị Mai</span>
+              <span class="preview" id="dc-reply-preview">đơn SO-2601/010 đã được phòng kế toán duyệt xong.</span>
+              <button class="icon-btn" id="dc-reply-cancel" style="width:24px;height:24px">
+                <i class="fa fa-times" style="font-size:12px"></i>
+              </button>
+            </div>
+
+            <div class="composer" id="dc-composer">
+              <textarea
+                class="composer-input"
+                id="dc-msg-input"
+                placeholder="Nhắn tin trong SO-2601/010 — Thảo luận (Ctrl+Enter để gửi)"
+                rows="1"
+              ></textarea>
+              <div class="composer-bottom">
+                <button class="icon-btn" title="Đính kèm file">
+                  <i class="fa fa-paperclip" style="font-size:13px"></i>
+                </button>
+                <button class="icon-btn" title="Emoji">
+                  <i class="fa fa-face-smile" style="font-size:13px"></i>
+                </button>
+                <button class="composer-send" id="dc-btn-send">
+                  <i class="fa fa-paper-plane" style="font-size:12px"></i> Gửi
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ RIGHT: Info pane ══ -->
+        <div class="info-pane" id="dc-info-pane">
+
+          <!-- Doc summary -->
+          <div class="info-section">
+            <div class="info-section-title">
+              <i class="fa fa-file-invoice"></i> Chứng từ
+            </div>
+            <div class="doc-summary-card">
+              <div class="doc-summary-no">
+                <span class="label" id="dc-doc-no">SO-2601/010</span>
+                <span class="status" id="dc-doc-status">Đang giao</span>
+              </div>
+              <div class="doc-summary-type" id="dc-doc-label">Đơn hàng bán · Công ty TNHH Thương mại Phú Thịnh</div>
+              <div class="doc-summary-rows">
+                <div class="doc-summary-row">
+                  <span class="k">Ngày đặt hàng</span>
+                  <span class="v">26/01/2026</span>
+                </div>
+                <div class="doc-summary-row">
+                  <span class="k">Ngày giao dự kiến</span>
+                  <span class="v">28/01/2026</span>
+                </div>
+                <div class="doc-summary-row">
+                  <span class="k">Số lượng sản phẩm</span>
+                  <span class="v">12 mặt hàng</span>
+                </div>
+                <hr class="doc-summary-divider">
+                <div class="doc-summary-row">
+                  <span class="k">Tổng tiền</span>
+                  <span class="v money" id="dc-doc-total">245.600.000 đ</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick actions -->
+          <div class="info-section">
+            <div class="info-section-title">
+              <i class="fa fa-bolt"></i> Thao tác nhanh
+            </div>
+            <div class="quick-action">
+              <div class="quick-action-icon"><i class="fa fa-eye" style="font-size:13px"></i></div>
+              <span>Xem chi tiết đơn hàng</span>
+            </div>
+            <div class="quick-action">
+              <div class="quick-action-icon"><i class="fa fa-print" style="font-size:13px"></i></div>
+              <span>In phiếu xuất kho</span>
+            </div>
+            <div class="quick-action">
+              <div class="quick-action-icon"><i class="fa fa-check-circle" style="font-size:13px"></i></div>
+              <span>Xác nhận giao hàng</span>
+            </div>
+          </div>
+
+          <!-- Members -->
+          <div class="info-section">
+            <div class="info-section-title">
+              <i class="fa fa-users"></i> Thành viên
+              <span class="count">5</span>
+              <span class="action">Thêm</span>
+            </div>
+
+            <div class="member-row">
+              <div class="member-avatar" style="background:hsl(188,55%,45%)">
+                H
+                <div class="presence"></div>
+              </div>
+              <div class="member-info">
+                <div class="member-name">Nguyễn Quốc Huy</div>
+                <div class="member-role">Kinh doanh · Bạn</div>
+              </div>
+              <span class="member-badge owner">Chủ</span>
+            </div>
+
+            <div class="member-row">
+              <div class="member-avatar" style="background:hsl(141,55%,45%)">
+                M
+                <div class="presence"></div>
+              </div>
+              <div class="member-info">
+                <div class="member-name">Trần Thị Mai</div>
+                <div class="member-role">Kế toán</div>
+              </div>
+            </div>
+
+            <div class="member-row">
+              <div class="member-avatar" style="background:hsl(329,55%,55%)">
+                L
+                <div class="presence away"></div>
+              </div>
+              <div class="member-info">
+                <div class="member-name">Nguyễn Văn Long</div>
+                <div class="member-role">Kinh doanh</div>
+              </div>
+            </div>
+
+            <div class="member-row">
+              <div class="member-avatar" style="background:hsl(47,55%,52%)">
+                P
+                <div class="presence offline"></div>
+              </div>
+              <div class="member-info">
+                <div class="member-name">Lê Thị Phương</div>
+                <div class="member-role">Xuất nhập kho</div>
+              </div>
+            </div>
+
+            <div class="member-row">
+              <div class="member-avatar" style="background:hsl(94,45%,45%)">
+                K
+                <div class="presence offline"></div>
+              </div>
+              <div class="member-info">
+                <div class="member-name">Phạm Văn Khoa</div>
+                <div class="member-role">Giám đốc kinh doanh</div>
+              </div>
+              <span class="member-badge admin">Admin</span>
+            </div>
+          </div>
+
+          <!-- Related docs -->
+          <div class="info-section">
+            <div class="info-section-title">
+              <i class="fa fa-link"></i> Chứng từ liên quan
+              <span class="count">2</span>
+            </div>
+            <div class="related-doc">
+              <div class="no"><i class="fa fa-file-invoice" style="font-size:11px;color:var(--text-3);margin-right:5px"></i>PXK-2601/005</div>
+              <div class="meta">Phiếu xuất kho · 26/01/2026 · Đang giao</div>
+            </div>
+            <div class="related-doc">
+              <div class="no"><i class="fa fa-file-invoice-dollar" style="font-size:11px;color:var(--text-3);margin-right:5px"></i>HD-2601/003</div>
+              <div class="meta">Hóa đơn VAT · 26/01/2026 · Chờ thanh toán</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Switcher tabs -->
+<div class="preview-tabs">
+  <button class="preview-tab active" onclick="switchView('chat')">Hội thoại</button>
+  <button class="preview-tab" onclick="switchView('compose-dm')">Nhắn tin mới</button>
+  <button class="preview-tab" onclick="switchView('compose-group')">Tạo nhóm</button>
+  <button class="preview-tab" onclick="switchView('typing')">Typing</button>
+  <button class="preview-tab" onclick="switchView('reply')">Reply</button>
+</div>
+
+<!-- Compose screen (hidden initially, shown via switcher) -->
+<template id="tpl-compose">
+  <div id="dc-compose-screen" class="dc-screen dc-compose" style="display:flex">
+    <div class="dc-compose-head">
+      <button class="icon-btn" id="dc-compose-back">
+        <i class="fa fa-arrow-left" style="font-size:13px"></i>
+      </button>
+      <span class="dc-compose-title" id="dc-compose-title">Nhắn tin mới</span>
+      <button class="icon-btn" id="dc-compose-close">
+        <i class="fa fa-times" style="font-size:13px"></i>
+      </button>
+    </div>
+    <div class="dc-compose-body">
+      <!-- Type tabs -->
+      <div class="dc-type-tabs">
+        <label class="dc-type-tab active">
+          <input type="radio" name="dc-conv-type" value="DM" checked>
+          <i class="fa fa-comment"></i> Nhắn tin
+        </label>
+        <label class="dc-type-tab">
+          <input type="radio" name="dc-conv-type" value="CHANNEL">
+          <i class="fa fa-users"></i> Tạo nhóm
+        </label>
+      </div>
+
+      <!-- Doc context ref -->
+      <div class="dc-create-context">
+        <i class="fa fa-file-invoice" style="font-size:11px"></i>
+        Liên quan: <strong id="dc-create-doc-ref">SO-2601/010</strong>
+      </div>
+
+      <!-- Group name (hidden in DM) -->
+      <div class="form-field" id="dc-create-name-wrap" style="display:none">
+        <label class="form-label">Tên nhóm</label>
+        <input class="form-input" type="text" id="dc-create-name" placeholder="Tên nhóm hội thoại...">
+      </div>
+
+      <!-- Search contacts -->
+      <div>
+        <div class="convo-search" style="margin-bottom:8px">
+          <i class="fa fa-search" style="font-size:12px;flex-shrink:0"></i>
+          <input type="text" id="dc-contact-search" placeholder="Tìm nhân viên...">
+        </div>
+
+        <!-- Selected chips -->
+        <div class="member-pick" id="dc-selected-chips" style="margin-bottom:10px">
+          <span style="color:var(--text-4);font-size:13px;padding:4px">Chưa chọn thành viên nào</span>
+        </div>
+
+        <!-- Member list -->
+        <div class="member-suggest" id="dc-member-suggest-list">
+          <div class="dc-dept-h">Kinh doanh <span class="ct">4</span></div>
+
+          <div class="member-suggest-item selected" data-aus-id="12" data-name="Trần Thị Mai" data-hue="141" data-dept="Kế toán">
+            <div class="member-avatar" style="background:hsl(141,55%,45%);width:32px;height:32px;font-size:12px">M</div>
+            <div class="member-info"><div class="member-name">Trần Thị Mai</div><div class="member-role">Kế toán</div></div>
+            <div class="dc-checkbox"></div>
+          </div>
+
+          <div class="member-suggest-item" data-aus-id="15" data-name="Nguyễn Văn Long" data-hue="329" data-dept="Kinh doanh">
+            <div class="member-avatar" style="background:hsl(329,55%,55%);width:32px;height:32px;font-size:12px">L</div>
+            <div class="member-info"><div class="member-name">Nguyễn Văn Long</div><div class="member-role">Kinh doanh</div></div>
+            <div class="dc-checkbox"></div>
+          </div>
+
+          <div class="member-suggest-item" data-aus-id="18" data-name="Lê Thị Phương" data-hue="47" data-dept="Xuất nhập kho">
+            <div class="member-avatar" style="background:hsl(47,55%,52%);width:32px;height:32px;font-size:12px">P</div>
+            <div class="member-info"><div class="member-name">Lê Thị Phương</div><div class="member-role">Xuất nhập kho</div></div>
+            <div class="dc-checkbox"></div>
+          </div>
+
+          <div class="dc-dept-h">Ban Giám đốc <span class="ct">2</span></div>
+
+          <div class="member-suggest-item" data-aus-id="5" data-name="Phạm Văn Khoa" data-hue="94" data-dept="Ban Giám đốc">
+            <div class="member-avatar" style="background:hsl(94,45%,45%);width:32px;height:32px;font-size:12px">K</div>
+            <div class="member-info"><div class="member-name">Phạm Văn Khoa</div><div class="member-role">Giám đốc kinh doanh</div></div>
+            <div class="dc-checkbox"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dc-compose-foot">
+      <button class="btn-ghost" id="dc-create-cancel">Hủy</button>
+      <button class="btn-primary" id="dc-create-submit">
+        <i class="fa fa-paper-plane" style="font-size:12px"></i>
+        Bắt đầu nhắn tin
+      </button>
+    </div>
+  </div>
+</template>
+
+<script>
+  // ── Minimal preview interactivity ──
+  function switchView(view) {
+    document.querySelectorAll('.preview-tab').forEach((t,i) => {
+      t.classList.toggle('active', ['chat','compose-dm','compose-group','typing','reply'][i] === view);
+    });
+
+    const listScreen    = document.getElementById('dc-list-screen');
+    const typingRow     = document.getElementById('dc-typing');
+    const replyBanner   = document.getElementById('dc-reply-banner');
+    const composeArea   = document.getElementById('dc-compose-area');
+
+    // Reset
+    typingRow.style.display  = 'none';
+    replyBanner.style.display = 'none';
+
+    // Remove existing compose screen
+    const existing = document.getElementById('dc-compose-screen');
+    if (existing) existing.remove();
+
+    if (view === 'chat') {
+      listScreen.style.display = 'flex';
+    } else if (view === 'compose-dm' || view === 'compose-group') {
+      listScreen.style.display = 'none';
+      const clone = document.getElementById('tpl-compose').content.cloneNode(true);
+      const convPane = document.querySelector('.convo-pane');
+      convPane.appendChild(clone);
+
+      if (view === 'compose-group') {
+        document.getElementById('dc-compose-title').textContent = 'Tạo nhóm mới';
+        document.getElementById('dc-create-name-wrap').style.display = 'flex';
+        document.getElementById('dc-create-submit').innerHTML = '<i class="fa fa-users" style="font-size:12px"></i> Tạo nhóm';
+        // Show chips demo
+        document.getElementById('dc-selected-chips').innerHTML =
+          '<span class="member-chip"><span class="member-chip-avatar" style="background:hsl(141,55%,45%)">M</span>Mai<span class="x" style="color:var(--text-3)">×</span></span>';
+        document.querySelector('.member-suggest-item.selected .dc-checkbox').style.cssText =
+          'background:var(--primary);border-color:var(--primary)';
+        document.querySelector('.member-suggest-item.selected .dc-checkbox').textContent = '✓';
+      }
+
+      // Back/close buttons
+      document.getElementById('dc-compose-back').onclick =
+      document.getElementById('dc-compose-close').onclick =
+      document.getElementById('dc-create-cancel').onclick = () => switchView('chat');
+    } else if (view === 'typing') {
+      listScreen.style.display = 'flex';
+      typingRow.style.display = 'flex';
+    } else if (view === 'reply') {
+      listScreen.style.display = 'flex';
+      replyBanner.style.display = 'flex';
+      document.getElementById('dc-composer').classList.add('with-reply');
+    }
+
+    if (view !== 'reply') {
+      document.getElementById('dc-composer').classList.remove('with-reply');
+    }
+  }
+
+  // Textarea auto-resize
+  document.getElementById('dc-msg-input').addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+  });
+
+  // Conv item click
+  document.querySelectorAll('.convo-item').forEach(item => {
+    item.addEventListener('click', function() {
+      document.querySelectorAll('.convo-item').forEach(i => i.classList.remove('active'));
+      this.classList.add('active');
+      this.classList.remove('unread');
+      this.querySelector('.convo-badge') && this.querySelector('.convo-badge').remove();
+    });
+  });
+
+  // Reply cancel
+  document.getElementById('dc-reply-cancel').addEventListener('click', () => {
+    document.getElementById('dc-reply-banner').style.display = 'none';
+    document.getElementById('dc-composer').classList.remove('with-reply');
+  });
+
+  // Info toggle
+  document.getElementById('dc-btn-info').addEventListener('click', function() {
+    const body = document.getElementById('dc-body');
+    const pane = document.getElementById('dc-info-pane');
+    const active = body.classList.toggle('with-info');
+    pane.style.display = active ? '' : 'none';
+    this.classList.toggle('active', active);
+  });
+
+  // Search toggle
+  document.getElementById('dc-btn-search-toggle').addEventListener('click', function() {
+    const bar = document.getElementById('dc-msg-search-bar');
+    const visible = bar.style.display !== 'none';
+    bar.style.display = visible ? 'none' : 'block';
+    if (!visible) document.getElementById('dc-msg-search-input').focus();
+    this.classList.toggle('active', !visible);
+  });
+
+  // Scroll to bottom on load
+  const msgs = document.getElementById('dc-messages');
+  msgs.scrollTop = msgs.scrollHeight;
+</script>
+</body>
+</html>
