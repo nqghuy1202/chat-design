@@ -297,24 +297,23 @@ Hai module đã được triển khai thực tế trên Oracle APEX 24.2. Mỗi 
 
 - **Page type:** APEX Blank Page (Normal, không phải Modal)
 - **Conv scope:** tất cả hội thoại của user — không filter doc. `msCreateConv` để `doc_type/doc_no = NULL`
-- **DM dedup:** kiểm tra `doc_type IS NULL AND doc_no IS NULL` — tránh nhầm với doc-chat DM
+- **DM dedup:** create DM đi qua Node `/create` (ngoài repo) vốn KHÔNG dedup → gây tạo DM trùng. Fix: frontend `msCreateDM` gọi callback `msFindDM` TRƯỚC; tìm thấy DM cũ (`doc_type/doc_no IS NULL`) thì mở lại (tự bỏ ẩn / rejoin), chỉ gọi Node `/create` khi thực sự chưa có. `msCreateConv` (APEX) vẫn giữ dedup nội bộ nhưng không còn là đường tạo chính.
 - **Real-time:** cùng Node.js relay, long-poll qua `msChatEvents` callback
 - **CSS scope:** `#ms-root`. `height: calc(100vh - 42px)` — điều chỉnh nếu APEX nav cao hơn/thấp hơn 42px
 - **JS scope:** IIFE trong `messenger.fgvd.js`, expose `window.ms*` cho onclick handlers trong PL/SQL HTML
-- **New conversation flow:** LP slider inline (S1→S2→S3), KHÔNG dùng overlay dialog. Xem bên dưới.
+- **New conversation flow:** LP slider inline hợp nhất (S1→S2, mô hình Messenger), KHÔNG dùng overlay dialog. Xem bên dưới.
 - Chi tiết đầy đủ: `messenger/CLAUDE.md` + `messenger/docs/callbacks.sql`
 
-#### messenger/ Left Panel Slider
+#### messenger/ Left Panel Slider — mô hình Messenger hợp nhất
 
-`#ms-lp-track` (width: 816px = 272px × 3) slides trong `#ms-left` (overflow: hidden):
+`#ms-lp-track` (width: 544px = 272px × 2) slides trong `#ms-left` (overflow: hidden). Đã gộp DM picker + group creator thành **một** màn soạn tin theo recipient (không hỏi "DM hay nhóm" trước):
 
 | Screen | translateX | ID | Purpose |
 |---|---|---|---|
 | S1 | `0` | `#ms-lp-s1` | Danh sách hội thoại |
-| S2 | `-272px` | `#ms-lp-s2` | Chọn liên hệ DM — click → tạo DM ngay; nút "Tạo nhóm" → S3 |
-| S3 | `-544px` | `#ms-lp-s3` | Tạo nhóm: nhập tên + multi-select ≥2 thành viên + nút tạo |
+| S2 | `-272px` | `#ms-lp-s2` | Soạn tin: ô "Tới:" (chips + tìm) + multi-select. 0–1 người → "Nhắn tin" (DM); ≥2 → reveal ô tên nhóm tùy chọn + "Tạo nhóm" (tên trống → auto-sinh) |
 
-Navigation: `msOpenNewConv()` → S2, `msNewConvBack()` → S1, `msOpenNewGroup()` → S3, `msGroupBack()` → S2. Tạo DM: `msCreateDM(ausId)`. Tạo nhóm: `msCreateGroup()`. **Không dùng overlay/dialog cho bất kỳ flow nào mới.**
+Navigation: `msOpenNewConv()` → S2, `msComposeClose()` (✕ / Esc) → S1. Submit: `msComposeSubmit()` chia nhánh DM/nhóm theo số người chọn (`msCreateDM` nội bộ). Click liên hệ = toggle vào ô "Tới:", KHÔNG tạo DM ngay. **Không dùng overlay/dialog cho bất kỳ flow nào mới.**
 
 #### messenger/ Typing Indicator
 
@@ -326,6 +325,24 @@ Navigation: `msOpenNewConv()` → S2, `msNewConvBack()` → S1, `msOpenNewGroup(
 - CSS classes: `.ms-typing-body`, `.ms-typing-dots`, `.ms-typing-label` trong `messenger.css`
 
 **APEX callback #11 `msGetAvatar`** — nhận `x01=aus_id`, trả `{ aus_id, img }`. SQL đầy đủ ở `messenger/docs/callbacks.sql`.
+
+#### messenger/ Conversation Dot-Menu (mỗi dòng hội thoại)
+
+Nút 3-chấm trên `.ms-conv-item` (render là `<div role="button">` để tránh nested button). `msOpenConvMenu(id, type, e)` mở `#ms-conv-menu` (fixed overlay). Options: Ghim (`msConvPin` → `msPinConv` toggle `is_pinned`), Ẩn (`msConvHide` → `msHideConv` set `is_hidden`), Thêm vào nhóm (DM, mở S3 preselect), Xóa (`msConvDelete` → `msDeleteConv` xóa participant row = rời hội thoại). Badge unread đỏ `.ms-ci-badge` (`#EF4444`). `msConvListHtml` order `is_pinned DESC` + section "Ghim", filter `is_hidden=0`.
+
+#### messenger/ Message Actions (react / reply / forward / pin)
+
+`msMsgThreadHtml` render mỗi `.ms-msg-row` với `.ms-msg-hover-actions` 4 nút + chip reactions + dấu "Đã ghim".
+
+- **React (quick 6 emoji):** `msOpenReactBar(msgId, e)` → thanh nổi `#ms-react-bar` (👍❤️😆😮😢🙏); `msToggleReaction(msgId, emoji)` (dùng chung cho chip + bar) cập nhật DOM **optimistic** qua `applyReactionDom()` rồi gọi callback `msToggleReaction`. Chip `.mine` = mình đã thả.
+- **Forward:** `msOpenForward(msgId, btn)` → `#ms-forward-modal`, list từ `msForwardListHtml`. Gửi qua `nodePost('/send', {conv_id: đích})` ⇒ **real-time đầy đủ** (tái dùng pipeline `/send`).
+- **Pin message:** `msTogglePinMsg(msgId)` → callback `msTogglePinMsg`; banner `#ms-pin-banner` (style theo nexus: nền trắng + thanh nhấn xanh + nút tròn) load qua `msPinnedListHtml`; `msJumpToMsg(msgId)` scroll + `.ms-msg-highlight`. Mọi thành viên ghim được; nhiều tin ghim.
+
+**Append-only thread refresh:** `loadThread()` = full load (chuyển hội thoại); `refreshThread()` = chỉ append tin mới (diff theo `data-msg-id`) + animate `.ms-msg-enter`, giữ scroll nếu user đọc lên trên. Gửi/nhận real-time gọi `refreshThread`, KHÔNG vẽ lại cả thread (tránh flicker). Vì refresh chỉ append, react/pin trên tin cũ cập nhật bằng DOM optimistic, không qua refresh.
+
+**Real-time caveat:** Node server là hạ tầng **ngoài repo** — không thêm được endpoint mới. Forward real-time vì dùng `/send`. React/Pin lưu DB + optimistic, đồng bộ cross-client khi thread refresh; muốn tức thời thì backend Node phải broadcast `{type:'reaction'|'pin', conv_id, msg_id}` (`onChatEvent` đã wire sẵn 2 type này).
+
+**Callbacks hiện tại (19):** render HTML (`msConvListHtml`, `msMsgThreadHtml`, `msInfoHtml`, `msContactsHtml`, `msPinnedListHtml`, `msForwardListHtml`), JSON/action (`msGetCurrentUser`, `msConvHeaderJson`, `msCreateConv`, `msFindDM`, `msGetAvatar`, `msPinConv`, `msHideConv`, `msDeleteConv`, `msToggleReaction`, `msTogglePinMsg`), deprecated relay (`msSendMsg`, `msMarkRead`). Send/read/typing/create đi qua `nodePost` (fetch thẳng Node). Nguồn chuẩn: `messenger/docs/callbacks.sql`.
 
 ### APEX-specific Rules (áp dụng cho cả hai module)
 
@@ -341,10 +358,14 @@ Navigation: `msOpenNewConv()` → S2, `msNewConvBack()` → S1, `msOpenNewGroup(
 Cả `doc-chat` và `messenger` dùng chung schema:
 - `CHAT_CONVERSATIONS` — `conv_id, conv_type (DM/CHANNEL), name, aus_id, doc_type, doc_no, last_msg_preview, last_msg_date`
 - `CHAT_MESSENGERS` — bảng tin nhắn (không phải `CHAT_MESSAGES`)
-- `CHAT_PARTICIPANTS` — `conv_id, aus_id, is_admin, last_read_msg_id`
+- `CHAT_PARTICIPANTS` — `conv_id, aus_id, is_admin, last_read_msg_id, is_pinned, is_hidden` (`is_pinned`/`is_hidden` thêm cho dot-menu messenger — pin/ẩn ở mức per-user)
+- `CHAT_REACTIONS` — `msg_id, aus_id, emoji, create_date` (PK `msg_id+aus_id+emoji`) — reaction per-user
+- `CHAT_PINNED_MSGS` — `conv_id, msg_id, aus_id, pin_date` (PK `conv_id+msg_id`) — tin ghim trong hội thoại
 - `CHAT_USER_ONLINE` — `aus_id, last_seen` (presence, cutoff 35 giây)
 - `CONV_SEQ` — sequence cho `conv_id`
 - `v_employees_v6` — view trả `emp_id, v_file_name` (avatar URL)
+
+**DDL cho các bảng/cột mới ở cuối `messenger/docs/callbacks.sql`. Phải chạy DDL TRƯỚC khi cập nhật callback render — nếu không `msMsgThreadHtml`/`msConvListHtml` query bảng thiếu → `ORA-00942` và không render được.**
 
 ## Secondary File: nexus-pure-v2.html
 

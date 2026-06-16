@@ -94,21 +94,22 @@ IIFE (messenger.fgvd.js)
   ├── msSelectConv(id)     — chọn conv: load header + thread + mark read (nodePost)
   ├── msSendMessage()      — gửi tin → nodePost('/send')
   ├── sendTyping()         — debounce 600ms → nodePost('/typing/:conv_id/:aus_id')
-  ├── msOpenNewConv()      — slide LP sang S2 (DM picker)
-  ├── msOpenNewGroup()     — slide LP sang S3 (group creator)
+  ├── msOpenNewConv()      — slide LP sang S2 (màn soạn tin hợp nhất)
+  ├── msComposeSubmit()    — 1 người → msCreateDM; ≥2 → tạo nhóm (tên auto-sinh nếu trống)
   ├── msCreateDM(ausId)    — nodePost('/create', {conv_type:'DM',...})
-  └── msCreateGroup()      — nodePost('/create', {conv_type:'CHANNEL',...})
+  └── msComposeClose()     — slide LP về S1 (nút ✕ / Esc)
 ```
 
-### Left Panel Slider
+### Left Panel Slider — mô hình Messenger hợp nhất
 
-`#ms-lp-track` (width: 816px = 272px × 3) dịch chuyển trong `#ms-left` (overflow: hidden):
+`#ms-lp-track` (width: 544px = 272px × 2) dịch chuyển trong `#ms-left` (overflow: hidden). Chỉ còn **2 màn** — đã gộp DM picker + group creator thành một màn soạn tin theo recipient:
 
 | Screen | translateX | ID | Purpose |
 |---|---|---|---|
 | S1 | `0` | `#ms-lp-s1` | Danh sách hội thoại |
-| S2 | `-272px` | `#ms-lp-s2` | DM picker — click liên hệ tạo DM ngay |
-| S3 | `-544px` | `#ms-lp-s3` | Group creator — tên nhóm + multi-select ≥2 |
+| S2 | `-272px` | `#ms-lp-s2` | Soạn tin: ô "Tới:" (chips + tìm), multi-select. 0–1 người → nút "Nhắn tin" (DM); ≥2 → reveal ô tên nhóm (tùy chọn) + nút "Tạo nhóm" |
+
+**Không hỏi "DM hay nhóm" trước** — loại hội thoại suy ra từ số người chọn. Click liên hệ = toggle vào ô "Tới:" (KHÔNG tạo DM ngay). Tên nhóm để trống → auto-sinh từ tên thành viên. Thoát về danh sách: nút ✕ hoặc Esc (1 thao tác). `_lpScreen` ∈ {1, 2}; `_memberMeta` cache tên/hue để chip giữ tên khi liên hệ bị lọc khỏi danh sách.
 
 ## Real-time — Typing Indicator
 

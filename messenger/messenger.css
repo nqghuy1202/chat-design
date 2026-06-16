@@ -1,23 +1,16 @@
-/* ============================================================
-   MESSENGER FULLSCREEN — CSS
-   Paste vào Page → CSS → Inline
-   Scope: #ms-root + overlays
-   ============================================================ */
-
-/* ── Reset & Root ── */
+.t-Dialog-body {
+    padding: 0rem;
+}
 #ms-root {
   display: flex;
-  height: calc(100vh - 42px); /* trừ APEX top nav */
+  height: 100vh; /* trừ APEX top nav */
   font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   font-size: 13.5px;
   color: #1E293B;
   overflow: hidden;
   background: #fff;
 }
-
-/* ============================================================
-   LEFT PANEL
-   ============================================================ */
+#ms-s2-search, #ms-s3-search { border: none;}
 #ms-left {
   width: 272px;
   flex-shrink: 0;
@@ -47,7 +40,19 @@
   justify-content: center;
   flex-shrink: 0;
 }
-
+.ms-typing-dots span {
+    display: inline-block;
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: ms-bounce 1.2s infinite;
+  }
+  .ms-typing-dots span:nth-child(2) { animation-delay: .2s; }
+  .ms-typing-dots span:nth-child(3) { animation-delay: .4s; }
+  @keyframes ms-bounce {
+    0%, 80%, 100% { transform: translateY(0); }
+    40%           { transform: translateY(-4px); }
+  }
 /* Search + filter area */
 #ms-lp-header {
   padding: 10px 10px 8px;
@@ -131,6 +136,7 @@
   border: none;
   background: transparent;
   width: 100%;
+  position: relative;
   text-align: left;
   font-family: inherit;
   font-size: inherit;
@@ -207,7 +213,7 @@
   text-overflow: ellipsis;
 }
 .ms-ci-badge {
-  background: #2563EB;
+  background: #EF4444;
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -217,6 +223,76 @@
   min-width: 18px;
   text-align: center;
 }
+
+/* ── Dot-menu trên từng dòng hội thoại ─────────────────────── */
+/* Dùng <div role="button"> (KHÔNG <button>) — tránh nested button
+   trong .ms-conv-item vốn đã là <button>. */
+.ms-ci-menu-btn {
+  position: absolute;
+  top: 8px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94A3B8;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s, background .1s, color .1s;
+}
+.ms-conv-item:hover  .ms-ci-time,
+.ms-conv-item.menu-open .ms-ci-time { opacity: 0; }
+.ms-conv-item:hover  .ms-ci-menu-btn,
+.ms-conv-item.menu-open .ms-ci-menu-btn { opacity: 1; pointer-events: auto; }
+.ms-ci-menu-btn:hover { background: #E2E8F0; color: #475569; }
+.ms-conv-item.menu-open .ms-ci-menu-btn { background: #DBEAFE; color: #2563EB; }
+
+/* ── Context menu hội thoại ─────────────────────────────────── */
+.ms-conv-menu {
+  position: fixed;
+  z-index: 9999;
+  width: 184px;
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 4px;
+  box-shadow: 0 4px 20px rgba(15,23,42,.08), 0 1px 4px rgba(15,23,42,.04);
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(.95) translateY(-4px);
+  transform-origin: top right;
+  transition: opacity .14s cubic-bezier(.16,1,.3,1), transform .14s cubic-bezier(.16,1,.3,1);
+}
+.ms-conv-menu.open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1) translateY(0);
+}
+.ms-conv-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #1E293B;
+  text-align: left;
+  transition: background .1s;
+}
+.ms-conv-menu-item:hover { background: #F1F5F9; }
+.ms-conv-menu-item.danger { color: #DC2626; }
+.ms-conv-menu-item.danger:hover { background: #FEF2F2; }
+.ms-conv-menu-sep { height: 1px; background: #F1F5F9; margin: 3px 4px; }
 
 /* User footer */
 #ms-user-row {
@@ -435,7 +511,13 @@
   position: absolute;
   inset: 0;
 }
-.ms-msg-av.hidden { visibility: hidden; }
+.ms-msg-av.hidden { display: none; }
+/* Spacer: tin nối tiếp (cùng người, < 10 phút) — giữ chỗ avatar 36px để canh lề,
+   không hiện chữ/ảnh. Giống cách Messenger gom nhóm tin. */
+.ms-msg-av.spacer { background: transparent; }
+
+/* Tin nối tiếp trong cùng nhóm: thu hẹp khoảng cách cho liền mạch */
+.ms-msg-row.cont { margin-top: 0; padding-top: 0; }
 
 /* Message column */
 .ms-msg-col {
@@ -526,6 +608,264 @@
   font-size: 12px;
 }
 .ms-msg-hover-btn:hover { background: #F1F5F9; color: #2563EB; }
+
+/* ── Reactions (chip dưới bubble) ──────────────────────────── */
+.ms-msg-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+  padding: 0 2px;
+}
+.ms-msg-row.mine .ms-msg-reactions { justify-content: flex-end; }
+.ms-reaction-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 1px solid #E2E8F0;
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  color: #64748B;
+  transition: background .12s, border-color .12s, transform .08s;
+}
+.ms-reaction-chip:active { transform: scale(.92); }
+.ms-reaction-chip .ms-reaction-count { font-weight: 600; font-size: 11px; }
+.ms-reaction-chip.mine {
+  background: #EFF6FF;
+  border-color: #BFDBFE;
+  color: #2563EB;
+}
+/* Chip vừa thêm — pop nhẹ */
+.ms-reaction-chip.ms-reaction-pop { animation: ms-reaction-pop .22s cubic-bezier(.22,1,.36,1); }
+@keyframes ms-reaction-pop {
+  0%   { transform: scale(.4); opacity: 0; }
+  100% { transform: scale(1);  opacity: 1; }
+}
+
+/* ── Thanh quick-react 6 emoji (floating) ──────────────────── */
+.ms-react-bar {
+  position: fixed;
+  z-index: 9999;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 999px;
+  box-shadow: 0 4px 20px rgba(15,23,42,.12), 0 1px 4px rgba(15,23,42,.06);
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(.9) translateY(4px);
+  transform-origin: bottom center;
+  transition: opacity .14s cubic-bezier(.16,1,.3,1), transform .14s cubic-bezier(.16,1,.3,1);
+}
+.ms-react-bar.open { opacity: 1; pointer-events: auto; transform: scale(1) translateY(0); }
+.ms-react-emoji {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .1s, transform .1s;
+}
+.ms-react-emoji:hover { background: #F1F5F9; transform: scale(1.2); }
+
+/* Dấu ghim nhỏ trên tin đã ghim */
+.ms-msg-pinned-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  color: #2563EB;
+  font-weight: 600;
+  margin-bottom: 1px;
+  padding: 0 2px;
+}
+
+/* Highlight khi nhảy tới tin (từ banner ghim) */
+.ms-msg-row.ms-msg-highlight .ms-msg-bubble {
+  animation: ms-msg-highlight 1.6s ease-out;
+}
+@keyframes ms-msg-highlight {
+  0%, 30% { box-shadow: 0 0 0 3px rgba(37,99,235,.30); border-radius: 12px; }
+  100%    { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
+}
+
+/* ── Banner tin ghim (đầu thread) — theo nexus ─────────────── */
+#ms-pin-banner {
+  display: none;
+  flex-direction: column;
+  flex-shrink: 0;
+  border-bottom: 1px solid #F1F5F9;
+  background: #fff;
+}
+#ms-pin-banner.visible { display: flex; }
+.ms-pin-banner-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: background .1s;
+}
+.ms-pin-banner-row:hover { background: #F8FAFC; }
+/* Thanh nhấn dọc màu accent */
+.ms-pin-accent {
+  width: 3px;
+  border-radius: 2px;
+  align-self: stretch;
+  min-height: 26px;
+  background: #2563EB;
+  flex-shrink: 0;
+}
+.ms-pin-banner-main { flex: 1; min-width: 0; }
+.ms-pin-banner-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #2563EB;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.ms-pin-banner-text {
+  font-size: 11.5px;
+  color: #64748B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+/* Nút tròn bên phải (mở/đóng danh sách) */
+.ms-pin-banner-toggle {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: #F1F5F9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94A3B8;
+  flex-shrink: 0;
+  transition: background .1s, transform .15s;
+}
+.ms-pin-banner-toggle:hover { background: #E2E8F0; color: #475569; }
+#ms-pin-banner.expanded .ms-pin-banner-toggle { transform: rotate(180deg); }
+.ms-pin-banner-count {
+  font-size: 10px;
+  font-weight: 700;
+  color: #2563EB;
+  background: #EFF6FF;
+  border-radius: 999px;
+  padding: 1px 7px;
+  flex-shrink: 0;
+}
+/* Danh sách tin ghim (mở rộng) */
+#ms-pin-list { display: none; border-top: 1px solid #F1F5F9; max-height: 240px; overflow-y: auto; }
+#ms-pin-banner.expanded #ms-pin-list { display: block; }
+.ms-pin-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-top: 1px solid #F8FAFC;
+  transition: background .1s;
+}
+.ms-pin-item:hover { background: #F8FAFC; }
+.ms-pin-item-main { flex: 1; min-width: 0; }
+.ms-pin-item-name { font-size: 11px; font-weight: 600; color: #2563EB; }
+.ms-pin-item-body { font-size: 12.5px; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.ms-pin-unpin {
+  border: none; background: transparent; cursor: pointer; color: #94A3B8;
+  padding: 2px; display: flex; align-items: center; flex-shrink: 0; border-radius: 5px;
+  transition: background .1s, color .1s;
+}
+.ms-pin-unpin:hover { background: #E2E8F0; color: #475569; }
+
+/* ── Modal chuyển tiếp ─────────────────────────────────────── */
+#ms-forward-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15,23,42,.45);
+}
+#ms-forward-modal.open { display: flex; }
+.ms-fwd-card {
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 24px 64px rgba(15,23,42,.22), 0 4px 16px rgba(15,23,42,.08);
+  overflow: hidden;
+}
+.ms-fwd-head { padding: 14px 16px 10px; border-bottom: 1px solid #F1F5F9; }
+.ms-fwd-title { font-size: 14.5px; font-weight: 700; color: #0F172A; }
+.ms-fwd-quote {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #475569;
+  background: #F8FAFC;
+  border-left: 3px solid #2563EB;
+  border-radius: 6px;
+  padding: 6px 9px;
+  max-height: 54px;
+  overflow: hidden;
+}
+.ms-fwd-search {
+  margin: 10px 16px 6px;
+  border: 1px solid #E2E8F0;
+  border-radius: 9px;
+  padding: 7px 11px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+.ms-fwd-search:focus { border-color: #2563EB; }
+#ms-fwd-list { flex: 1; overflow-y: auto; padding: 4px 8px; }
+.ms-fwd-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.ms-fwd-item:hover { background: #F1F5F9; }
+.ms-fwd-item.selected { background: #EFF6FF; }
+.ms-fwd-av {
+  width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: 50%; color: #fff; font-weight: 600; font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+}
+.ms-fwd-av.group { border-radius: 10px; }
+.ms-fwd-name { font-size: 13px; font-weight: 600; color: #1E293B; }
+.ms-fwd-foot { padding: 10px 16px; border-top: 1px solid #F1F5F9; display: flex; justify-content: flex-end; gap: 8px; }
+.ms-fwd-btn {
+  border: none; border-radius: 9px; padding: 8px 16px;
+  font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer;
+}
+.ms-fwd-btn.cancel { background: #F1F5F9; color: #475569; }
+.ms-fwd-btn.send { background: #2563EB; color: #fff; opacity: .5; pointer-events: none; }
+.ms-fwd-btn.send.enabled { opacity: 1; pointer-events: auto; }
+
 
 /* ── Input area ── */
 #ms-input-area {
@@ -732,18 +1072,14 @@
   flex-shrink: 0;
 }
 .ms-member-badge.admin { background: #DBEAFE; color: #1D4ED8; }
-
-/* ============================================================
-   LEFT PANEL SLIDER (S1 / S2 / S3)
-   ============================================================ */
 #ms-lp-track {
   display: flex;
   flex-direction: row;
-  width: 816px; /* 272px * 3 */
+  width: 544px; /* 272px * 2 (S1 + S2 hợp nhất) */
   height: 100%;
-  transition: transform .3s cubic-bezier(.4,0,.2,1);
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
 }
-#ms-lp-s1, #ms-lp-s2, #ms-lp-s3 {
+#ms-lp-s1, #ms-lp-s2 {
   width: 272px;
   flex-shrink: 0;
   display: flex;
@@ -752,7 +1088,6 @@
   background: #F8FAFC;
 }
 
-/* Slider screen header (S2, S3) */
 .ms-lp-sh {
   display: flex;
   align-items: center;
@@ -797,6 +1132,58 @@
 .ms-lp-search-wrap {
   padding: 10px 12px 8px;
   flex-shrink: 0;
+}
+
+/* ── Recipient field hợp nhất (S2 soạn tin): "Tới:" + chips + input ── */
+.ms-compose-recip-wrap {
+  padding: 10px 12px 4px;
+  flex-shrink: 0;
+}
+.ms-compose-recip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  background: #fff;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 7px 10px;
+  transition: border-color .15s;
+}
+.ms-compose-recip:focus-within { border-color: #93C5FD; }
+.ms-compose-to-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748B;
+  flex-shrink: 0;
+}
+.ms-compose-chips { display: contents; }
+.ms-compose-input {
+  flex: 1;
+  min-width: 90px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: #1E293B;
+  padding: 2px 0;
+}
+.ms-compose-input::placeholder { color: #94A3B8; }
+
+/* Tên nhóm tùy chọn — reveal mềm khi ≥2 người */
+.ms-compose-name-wrap {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding: 0 12px;
+  flex-shrink: 0;
+  transition: max-height .16s ease, opacity .16s ease, padding .16s ease;
+}
+.ms-compose-name-wrap.visible {
+  max-height: 60px;
+  opacity: 1;
+  padding: 4px 12px;
 }
 
 /* Scrollable contact list area */
@@ -1114,10 +1501,6 @@
   transform: translateX(16px);
 }
 .ms-rp-toggle.off .ms-rp-toggle-thumb { transform: translateX(0); }
-
-/* ============================================================
-   SKELETON LOADER
-   ============================================================ */
 .ms-skeleton {
   background: linear-gradient(90deg, #F1F5F9 25%, #E8EDF4 50%, #F1F5F9 75%);
   background-size: 200% 100%;
@@ -1147,7 +1530,6 @@
   gap: 8px;
 }
 .ms-sk-line { height: 10px; }
-
 /* ── Typing indicator ── */
 #ms-typing-indicator {
   display: none;
@@ -1187,3 +1569,23 @@
   0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
   40%           { transform: translateY(-4px); opacity: 1; }
 }
+/* Tin nhắn mới chèn vào thread (append-only refresh) — fade + slide nhẹ.
+   Subtle/professional: ~220ms, slide 8px, ease-out. Hoạt động cho cả .mine. */
+.ms-msg-row.ms-msg-enter {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.ms-msg-row.ms-msg-enter.ms-msg-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity .22s ease-out, transform .22s cubic-bezier(.22, 1, .36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ms-msg-row.ms-msg-enter,
+  .ms-msg-row.ms-msg-enter.ms-msg-enter-active {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+

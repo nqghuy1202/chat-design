@@ -133,10 +133,12 @@ BEGIN
         (SELECT COUNT(*) FROM CHAT_MESSENGERS m
          WHERE  m.conv_id = c.conv_id AND m.delete_date IS NULL
            AND  m.msg_id > NVL(p.last_read_msg_id, 0)
-        ) AS unread_count
+        ) AS unread_count,
+        NVL(p.is_pinned, 0) AS is_pinned
       FROM CHAT_CONVERSATIONS c
       JOIN CHAT_PARTICIPANTS  p ON p.conv_id = c.conv_id AND p.aus_id = l_aus_id
-      WHERE (l_filter != 'UNREAD' OR
+      WHERE NVL(p.is_hidden, 0) = 0
+        AND (l_filter != 'UNREAD' OR
              (SELECT COUNT(*) FROM CHAT_MESSENGERS m
               WHERE m.conv_id = c.conv_id AND m.delete_date IS NULL
                 AND m.msg_id > NVL(p.last_read_msg_id,0)) > 0)
@@ -157,7 +159,7 @@ BEGIN
            CASE WHEN o.last_seen >= l_online_cutoff THEN 'online' ELSE 'offline' END AS presence
     FROM   conv_raw r
     LEFT JOIN CHAT_USER_ONLINE o ON o.aus_id = r.partner_aus_id
-    ORDER  BY r.last_msg_date DESC NULLS LAST
+    ORDER  BY r.is_pinned DESC, r.last_msg_date DESC NULLS LAST
   ) LOOP
     DECLARE
       l_name    VARCHAR2(200) := REGEXP_REPLACE(NVL(conv.display_name,'?'),'[[:cntrl:]]','');
@@ -168,13 +170,21 @@ BEGIN
     BEGIN
       IF NVL(l_initl,'') = '' THEN l_initl := '?'; END IF;
 
-      -- Section label
-      IF conv.conv_type != l_last_type THEN
-        l_last_type := conv.conv_type;
-        HTP.p('<div class="ms-section-label">'
-              || CASE conv.conv_type WHEN 'DM' THEN 'Tin nhắn trực tiếp' ELSE 'Nhóm' END
-              || '</div>');
-      END IF;
+      -- Section label (Ghim đứng trước, sau đó DM / Nhóm)
+      DECLARE
+        l_sect VARCHAR2(20) := CASE WHEN conv.is_pinned = 1 THEN 'PIN' ELSE conv.conv_type END;
+      BEGIN
+        IF l_sect != l_last_type THEN
+          l_last_type := l_sect;
+          HTP.p('<div class="ms-section-label">'
+                || CASE l_sect
+                     WHEN 'PIN' THEN 'Ghim'
+                     WHEN 'DM'  THEN 'Tin nhắn trực tiếp'
+                     ELSE 'Nhóm'
+                   END
+                || '</div>');
+        END IF;
+      END;
 
       -- Conv item classes
       l_cls := 'ms-conv-item'
@@ -182,8 +192,9 @@ BEGIN
              || CASE WHEN conv.conv_type = 'CHANNEL' THEN ' group' END;
 
       HTP.p('<button type="button" class="' || l_cls || '"'
-            || ' data-conv-id="'   || conv.conv_id   || '"'
-            || ' data-conv-type="' || conv.conv_type || '"'
+            || ' data-conv-id="'    || conv.conv_id   || '"'
+            || ' data-conv-type="'  || conv.conv_type || '"'
+            || ' data-partner-id="' || NVL(TO_CHAR(conv.partner_aus_id),'') || '"'
             || ' onclick="msSelectConv(' || conv.conv_id
             || ',''' || conv.conv_type || ''')">');
 
@@ -217,6 +228,14 @@ BEGIN
       END IF;
       HTP.p('    </div>');
       HTP.p('  </div>');
+
+      -- Dot-menu (div role=button — tránh nested button trong .ms-conv-item)
+      HTP.p('  <div role="button" tabindex="-1" class="ms-ci-menu-btn"'
+            || ' onclick="msOpenConvMenu(' || conv.conv_id
+            || ',''' || conv.conv_type || ''',event)" title="Tùy chọn">'
+            || '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">'
+            || '<circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/>'
+            || '<circle cx="12" cy="19" r="2"/></svg></div>');
 
       HTP.p('</button>');
     END;
@@ -304,9 +323,14 @@ END;
 --    Dùng MATERIALIZE vì REGEXP_REPLACE trên remote columns.
 -- ============================================================
 DECLARE
-  l_conv_id  NUMBER       := TO_NUMBER(NVL(TRIM(apex_application.g_x01),'0'));
-  l_aus_id   NUMBER;
-  l_last_day DATE         := NULL;
+  l_conv_id   NUMBER       := TO_NUMBER(NVL(TRIM(apex_application.g_x01),'0'));
+  l_aus_id    NUMBER;
+  l_last_day  DATE         := NULL;
+  -- Gom nhóm kiểu Messenger: chỉ hiện avatar + tên + giờ khi BẮT ĐẦU nhóm mới.
+  -- Nhóm mới = đổi người gửi, HOẶC cách tin trước ≥ 10 phút, HOẶC sang ngày mới.
+  l_prev_from NUMBER       := NULL;   -- from_aus_id của tin liền trước
+  l_prev_dt   DATE         := NULL;   -- thời điểm tin liền trước
+  l_new_grp   BOOLEAN;                -- tin hiện tại có bắt đầu nhóm mới không
 BEGIN
   OWA_UTIL.MIME_HEADER('text/html', TRUE, 'UTF-8');
 
@@ -335,9 +359,12 @@ BEGIN
         m.delete_date,
         m.reply_to_msg_id,
         TRUNC(m.create_date)              AS msg_day,
+        CAST(m.create_date AS DATE)       AS msg_dt,
         TO_CHAR(m.create_date,'HH24:MI') AS msg_time,
         CASE WHEN qm.delete_date IS NOT NULL THEN '[Tin nhắn đã bị xóa]' ELSE qm.body END AS reply_body,
-        REGEXP_REPLACE(NVL(qe.full_name,''),'[[:cntrl:]]','') AS reply_from_name
+        REGEXP_REPLACE(NVL(qe.full_name,''),'[[:cntrl:]]','') AS reply_from_name,
+        (SELECT COUNT(*) FROM CHAT_PINNED_MSGS pp
+         WHERE pp.conv_id = m.conv_id AND pp.msg_id = m.msg_id) AS is_pinned
       FROM   CHAT_MESSENGERS m
       JOIN   APP_USERS       u  ON u.aus_id  = m.from_aus_id
       JOIN   EMPLOYEES       e  ON e.emp_id  = u.emp_id
@@ -352,15 +379,26 @@ BEGIN
     FROM   msg_raw mr
     LEFT JOIN v_employees_v6 vf ON vf.emp_id = mr.emp_id
   ) LOOP
-    -- Date divider
+    -- Date divider (sang ngày mới luôn mở nhóm mới)
+    l_new_grp := FALSE;
     IF l_last_day IS NULL OR msg.msg_day > l_last_day THEN
       l_last_day := msg.msg_day;
       HTP.p('<div class="ms-day-divider"><span>' || TO_CHAR(msg.msg_day,'DD/MM/YYYY') || '</span></div>');
+      l_new_grp := TRUE;
+    END IF;
+
+    -- Nhóm mới nếu: tin đầu, đổi người gửi, hoặc cách tin trước ≥ 10 phút
+    IF l_prev_from IS NULL
+       OR msg.from_aus_id <> l_prev_from
+       OR (msg.msg_dt - l_prev_dt) * 1440 >= 10 THEN
+      l_new_grp := TRUE;
     END IF;
 
     DECLARE
       l_mine     BOOLEAN      := (msg.from_aus_id = l_aus_id);
-      l_cls      VARCHAR2(60) := 'ms-msg-row' || CASE WHEN l_mine THEN ' mine' END;
+      l_cls      VARCHAR2(60) := 'ms-msg-row'
+                                 || CASE WHEN l_mine THEN ' mine' END
+                                 || CASE WHEN NOT l_new_grp THEN ' cont' END;
       l_av       VARCHAR2(4)  := UPPER(SUBSTR(REGEXP_SUBSTR(msg.from_name,'\S+$'),1,1));
       l_hue      VARCHAR2(10) := TO_CHAR(MOD(msg.from_aus_id * 47, 360));
       l_body_esc VARCHAR2(32767);
@@ -369,9 +407,12 @@ BEGIN
 
       HTP.p('<div class="' || l_cls || '" data-msg-id="' || msg.msg_id || '">');
 
-      -- Avatar
+      -- Avatar: tin của mình luôn ẩn; tin người khác chỉ hiện ở đầu nhóm,
+      -- các tin nối tiếp dùng spacer để giữ canh lề.
       IF l_mine THEN
         HTP.p('  <div class="ms-msg-av hidden"></div>');
+      ELSIF NOT l_new_grp THEN
+        HTP.p('  <div class="ms-msg-av spacer"></div>');
       ELSE
         HTP.p('  <div class="ms-msg-av" style="background:hsl(' || l_hue || ',55%,52%)">');
         IF msg.sender_img IS NOT NULL THEN
@@ -384,13 +425,23 @@ BEGIN
 
       HTP.p('  <div class="ms-msg-col">');
 
-      -- Meta (sender name + time)
-      HTP.p('    <div class="ms-msg-meta">');
-      IF NOT l_mine THEN
-        HTP.p('      <span class="ms-msg-meta-name">' || HTF.ESCAPE_SC(msg.from_name) || '</span>');
+      -- Dấu ghim
+      IF msg.is_pinned > 0 THEN
+        HTP.p('    <div class="ms-msg-pinned-mark">'
+              || '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M5 8.5A5.5 5.5 0 0 1 10.5 3h3A5.5 5.5 0 0 1 19 8.5v.5l1.5 3.5H3.5L5 9z"/></svg>'
+              || 'Đã ghim</div>');
       END IF;
-      HTP.p('      <span>' || msg.msg_time || '</span>');
-      HTP.p('    </div>');
+
+      -- Meta (tên người gửi + giờ): chỉ hiện ở đầu nhóm.
+      -- Tin nối tiếp (< 10 phút, cùng người) bỏ meta — giống Messenger.
+      IF l_new_grp THEN
+        HTP.p('    <div class="ms-msg-meta">');
+        IF NOT l_mine THEN
+          HTP.p('      <span class="ms-msg-meta-name">' || HTF.ESCAPE_SC(msg.from_name) || '</span>');
+        END IF;
+        HTP.p('      <span>' || msg.msg_time || '</span>');
+        HTP.p('    </div>');
+      END IF;
 
       -- Reply context
       IF msg.reply_to_msg_id IS NOT NULL THEN
@@ -412,20 +463,65 @@ BEGIN
         HTP.p('    <div class="ms-msg-bubble">' || l_body_esc || '</div>');
       END IF;
 
-      -- Hover: reply button
+      -- Reactions (chip tổng hợp theo emoji)
+      DECLARE
+        l_has_rx NUMBER := 0;
+      BEGIN
+        FOR rx IN (
+          SELECT emoji, COUNT(*) AS cnt,
+                 MAX(CASE WHEN aus_id = l_aus_id THEN 1 ELSE 0 END) AS mine
+          FROM   CHAT_REACTIONS
+          WHERE  msg_id = msg.msg_id
+          GROUP  BY emoji
+          ORDER  BY MIN(create_date)
+        ) LOOP
+          IF l_has_rx = 0 THEN
+            HTP.p('    <div class="ms-msg-reactions" data-msg-id="' || msg.msg_id || '">');
+            l_has_rx := 1;
+          END IF;
+          HTP.p('      <button type="button" class="ms-reaction-chip'
+                || CASE WHEN rx.mine = 1 THEN ' mine' END || '"'
+                || ' data-emoji="' || rx.emoji || '"'
+                || ' onclick="msToggleReaction(' || msg.msg_id || ',this.dataset.emoji)">'
+                || '<span>' || rx.emoji || '</span>'
+                || '<span class="ms-reaction-count">' || rx.cnt || '</span></button>');
+        END LOOP;
+        IF l_has_rx = 1 THEN HTP.p('    </div>'); END IF;
+      END;
+
+      -- Hover actions: react / reply / forward / pin
       IF msg.delete_date IS NULL THEN
         HTP.p('    <div class="ms-msg-hover-actions">');
+        -- React (mở thanh 6 emoji)
+        HTP.p('      <button type="button" class="ms-msg-hover-btn" title="Bày tỏ cảm xúc"'
+              || ' onclick="msOpenReactBar(' || msg.msg_id || ',event)">'
+              || '<i class="fa fa-smile-o"></i></button>');
+        -- Reply
         HTP.p('      <button type="button" class="ms-msg-hover-btn" title="Trả lời"'
               || ' data-reply-id="'   || msg.msg_id || '"'
               || ' data-reply-name="' || HTF.ESCAPE_SC(msg.from_name) || '"'
               || ' data-reply-body="' || REPLACE(SUBSTR(NVL(msg.body,''),1,100),'"','&quot;') || '">'
               || '<i class="fa fa-reply"></i></button>');
+        -- Forward
+        HTP.p('      <button type="button" class="ms-msg-hover-btn" title="Chuyển tiếp"'
+              || ' onclick="msOpenForward(' || msg.msg_id || ',this)"'
+              || ' data-fwd-body="' || REPLACE(SUBSTR(NVL(msg.body,''),1,400),'"','&quot;') || '">'
+              || '<i class="fa fa-share"></i></button>');
+        -- Pin / unpin
+        HTP.p('      <button type="button" class="ms-msg-hover-btn"'
+              || ' title="' || CASE WHEN msg.is_pinned > 0 THEN 'Bỏ ghim' ELSE 'Ghim' END || '"'
+              || ' onclick="msTogglePinMsg(' || msg.msg_id || ')">'
+              || '<i class="fa fa-thumb-tack"></i></button>');
         HTP.p('    </div>');
       END IF;
 
       HTP.p('  </div>');
       HTP.p('</div>');
     END;
+
+    -- Ghi nhớ tin vừa render để tính nhóm cho tin kế tiếp
+    l_prev_from := msg.from_aus_id;
+    l_prev_dt   := msg.msg_dt;
   END LOOP;
 
   IF l_last_day IS NULL THEN
@@ -1121,6 +1217,87 @@ END;
 
 
 -- ============================================================
+-- 10b. msFindDM  (chống trùng DM — gọi TRƯỚC khi tạo qua Node)
+--     x01 = aus_id của đối phương.
+--     Tìm DM cũ giữa current user và đối phương (doc_type/doc_no NULL).
+--     - Tìm thấy: bỏ ẩn (is_hidden=0) hoặc rejoin nếu đã rời, trả {found:true, conv_id}.
+--     - Không thấy: trả {found:false} → frontend gọi Node /create (giữ real-time).
+--     Lý do tồn tại: create DM đi qua Node (ngoài repo) vốn KHÔNG dedup, gây
+--     tạo nhiều DM trùng. Pre-check này đưa dedup về phía APEX (trong tầm kiểm soát).
+-- ============================================================
+DECLARE
+  l_aus_id     NUMBER;
+  l_partner_id NUMBER := TO_NUMBER(NVL(TRIM(apex_application.g_x01),'0'));
+  l_found      NUMBER;
+BEGIN
+  OWA_UTIL.MIME_HEADER('application/json', TRUE, 'UTF-8');
+
+  IF :APP_USER IS NULL OR :APP_USER IN ('nobody','NOBODY') THEN
+    HTP.p('{"error":"auth"}'); RETURN;
+  END IF;
+  BEGIN
+    SELECT aus_id INTO l_aus_id FROM APP_USERS WHERE LOWER(user_name) = LOWER(:APP_USER);
+  EXCEPTION WHEN NO_DATA_FOUND THEN
+    HTP.p('{"error":"user_not_found"}'); RETURN;
+  END;
+
+  IF l_partner_id = 0 OR l_partner_id = l_aus_id THEN
+    HTP.p('{"found":false}'); RETURN;
+  END IF;
+
+  -- (1) DM mà cả hai còn là participant (bao gồm cả khi mình đã Ẩn — is_hidden=1)
+  BEGIN
+    SELECT c.conv_id INTO l_found
+    FROM   CHAT_CONVERSATIONS c
+    JOIN   CHAT_PARTICIPANTS p1 ON p1.conv_id = c.conv_id AND p1.aus_id = l_aus_id
+    JOIN   CHAT_PARTICIPANTS p2 ON p2.conv_id = c.conv_id AND p2.aus_id = l_partner_id
+    WHERE  c.conv_type = 'DM'
+      AND  c.doc_type IS NULL
+      AND  c.doc_no   IS NULL
+    ORDER  BY c.conv_id ASC
+    FETCH FIRST 1 ROW ONLY;
+  EXCEPTION WHEN NO_DATA_FOUND THEN
+    l_found := NULL;
+  END;
+
+  -- (2) Fallback: mình đã RỜI (xóa participant row) nhưng mình là người tạo conv
+  IF l_found IS NULL THEN
+    BEGIN
+      SELECT c.conv_id INTO l_found
+      FROM   CHAT_CONVERSATIONS c
+      JOIN   CHAT_PARTICIPANTS p2 ON p2.conv_id = c.conv_id AND p2.aus_id = l_partner_id
+      WHERE  c.conv_type = 'DM'
+        AND  c.doc_type IS NULL
+        AND  c.doc_no   IS NULL
+        AND  c.aus_id   = l_aus_id
+      ORDER  BY c.conv_id ASC
+      FETCH FIRST 1 ROW ONLY;
+    EXCEPTION WHEN NO_DATA_FOUND THEN
+      l_found := NULL;
+    END;
+  END IF;
+
+  IF l_found IS NULL THEN
+    HTP.p('{"found":false}'); RETURN;
+  END IF;
+
+  -- Mở lại: bỏ ẩn nếu đang ẩn; rejoin nếu đã rời (row bị xóa)
+  UPDATE CHAT_PARTICIPANTS SET is_hidden = 0
+  WHERE  conv_id = l_found AND aus_id = l_aus_id;
+  IF SQL%ROWCOUNT = 0 THEN
+    INSERT INTO CHAT_PARTICIPANTS (conv_id, aus_id, is_admin, created_by, create_date)
+    VALUES (l_found, l_aus_id, 0, :APP_USER, SYSTIMESTAMP);
+  END IF;
+  COMMIT;
+
+  HTP.p('{"found":true,"conv_id":' || l_found || '}');
+EXCEPTION WHEN OTHERS THEN
+  ROLLBACK;
+  HTP.p('{"error":"' || REPLACE(SQLERRM,'"','') || '"}');
+END;
+
+
+-- ============================================================
 -- 11. msGetAvatar
 --     Trả JSON { aus_id, img } theo aus_id truyền vào x01.
 --     Dùng cho typing indicator — cache phía client.
@@ -1152,4 +1329,292 @@ BEGIN
   ));
 EXCEPTION WHEN OTHERS THEN
   HTP.p('{"error":"' || REPLACE(SQLERRM,'"','') || '"}');
+END;
+
+
+-- ============================================================
+-- SCHEMA — bổ sung cột cho dot-menu (chạy 1 lần)
+-- ============================================================
+--   Pin / Hide ở mức per-user → lưu trên CHAT_PARTICIPANTS.
+--   "Xóa hội thoại" = rời cuộc trò chuyện (DELETE participant row).
+--
+--   ALTER TABLE CHAT_PARTICIPANTS ADD (
+--     is_pinned NUMBER(1) DEFAULT 0 NOT NULL,
+--     is_hidden NUMBER(1) DEFAULT 0 NOT NULL
+--   );
+--
+--   Lưu ý: msConvListHtml đã filter NVL(p.is_hidden,0)=0 và
+--   ORDER BY is_pinned DESC, section "Ghim" đứng trước.
+
+
+-- ============================================================
+-- 12. msPinConv  — toggle ghim hội thoại (per-user)
+--     x01 = conv_id
+-- ============================================================
+DECLARE
+  l_conv_id NUMBER := TO_NUMBER(NVL(TRIM(apex_application.g_x01),'0'));
+  l_aus_id  NUMBER;
+BEGIN
+  OWA_UTIL.MIME_HEADER('application/json', TRUE, 'UTF-8');
+  IF :APP_USER IS NULL OR :APP_USER IN ('nobody','NOBODY') THEN
+    HTP.p('{"error":"auth"}'); RETURN;
+  END IF;
+  SELECT aus_id INTO l_aus_id FROM APP_USERS WHERE LOWER(user_name) = LOWER(:APP_USER);
+
+  UPDATE CHAT_PARTICIPANTS
+  SET    is_pinned = CASE WHEN NVL(is_pinned,0) = 1 THEN 0 ELSE 1 END
+  WHERE  conv_id = l_conv_id AND aus_id = l_aus_id;
+  COMMIT;
+
+  HTP.p('{"status":"ok"}');
+EXCEPTION WHEN OTHERS THEN
+  HTP.p('{"error":"' || REPLACE(SQLERRM,'"','') || '"}');
+END;
+
+
+-- ============================================================
+-- 13. msHideConv  — ẩn hội thoại khỏi danh sách (per-user)
+--     x01 = conv_id
+-- ============================================================
+DECLARE
+  l_conv_id NUMBER := TO_NUMBER(NVL(TRIM(apex_application.g_x01),'0'));
+  l_aus_id  NUMBER;
+BEGIN
+  OWA_UTIL.MIME_HEADER('application/json', TRUE, 'UTF-8');
+  IF :APP_USER IS NULL OR :APP_USER IN ('nobody','NOBODY') THEN
+    HTP.p('{"error":"auth"}'); RETURN;
+  END IF;
+  SELECT aus_id INTO l_aus_id FROM APP_USERS WHERE LOWER(user_name) = LOWER(:APP_USER);
+
+  UPDATE CHAT_PARTICIPANTS
+  SET    is_hidden = 1
+  WHERE  conv_id = l_conv_id AND aus_id = l_aus_id;
+  COMMIT;
+
+  HTP.p('{"status":"ok"}');
+EXCEPTION WHEN OTHERS THEN
+  HTP.p('{"error":"' || REPLACE(SQLERRM,'"','') || '"}');
+END;
+
+
+-- ============================================================
+-- 14. msDeleteConv  — xóa hội thoại khỏi danh sách = rời cuộc trò chuyện
+--     x01 = conv_id. Chỉ xóa participant row của chính user.
+-- ============================================================
+DECLARE
+  l_conv_id NUMBER := TO_NUMBER(NVL(TRIM(apex_application.g_x01),'0'));
+  l_aus_id  NUMBER;
+BEGIN
+  OWA_UTIL.MIME_HEADER('application/json', TRUE, 'UTF-8');
+  IF :APP_USER IS NULL OR :APP_USER IN ('nobody','NOBODY') THEN
+    HTP.p('{"error":"auth"}'); RETURN;
+  END IF;
+  SELECT aus_id INTO l_aus_id FROM APP_USERS WHERE LOWER(user_name) = LOWER(:APP_USER);
+
+  DELETE FROM CHAT_PARTICIPANTS
+  WHERE  conv_id = l_conv_id AND aus_id = l_aus_id;
+  COMMIT;
+
+  HTP.p('{"status":"ok"}');
+EXCEPTION WHEN OTHERS THEN
+  HTP.p('{"error":"' || REPLACE(SQLERRM,'"','') || '"}');
+END;
+
+
+-- ============================================================
+-- SCHEMA — bảng cho React + Pin tin nhắn (chạy 1 lần)
+-- ============================================================
+--   CREATE TABLE CHAT_REACTIONS (
+--     msg_id      NUMBER          NOT NULL,
+--     aus_id      NUMBER          NOT NULL,
+--     emoji       VARCHAR2(16)    NOT NULL,
+--     create_date TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+--     CONSTRAINT pk_chat_reactions PRIMARY KEY (msg_id, aus_id, emoji)
+--   );
+--   CREATE INDEX ix_chat_reactions_msg ON CHAT_REACTIONS(msg_id);
+--
+--   CREATE TABLE CHAT_PINNED_MSGS (
+--     conv_id  NUMBER NOT NULL,
+--     msg_id   NUMBER NOT NULL,
+--     aus_id   NUMBER NOT NULL,           -- ai ghim
+--     pin_date TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+--     CONSTRAINT pk_chat_pinned PRIMARY KEY (conv_id, msg_id)
+--   );
+
+
+-- ============================================================
+-- 15. msToggleReaction — thêm/bỏ reaction của user trên 1 tin
+--     x01 = msg_id | x02 = emoji
+-- ============================================================
+DECLARE
+  l_msg_id NUMBER       := TO_NUMBER(NVL(TRIM(apex_application.g_x01),'0'));
+  l_emoji  VARCHAR2(16) := SUBSTR(apex_application.g_x02, 1, 16);
+  l_aus_id NUMBER;
+  l_exist  NUMBER := 0;
+BEGIN
+  OWA_UTIL.MIME_HEADER('application/json', TRUE, 'UTF-8');
+  IF :APP_USER IS NULL OR :APP_USER IN ('nobody','NOBODY') THEN
+    HTP.p('{"error":"auth"}'); RETURN;
+  END IF;
+  SELECT aus_id INTO l_aus_id FROM APP_USERS WHERE LOWER(user_name) = LOWER(:APP_USER);
+
+  IF l_msg_id = 0 OR l_emoji IS NULL THEN HTP.p('{"error":"bad_input"}'); RETURN; END IF;
+
+  SELECT COUNT(*) INTO l_exist FROM CHAT_REACTIONS
+  WHERE  msg_id = l_msg_id AND aus_id = l_aus_id AND emoji = l_emoji;
+
+  IF l_exist > 0 THEN
+    DELETE FROM CHAT_REACTIONS
+    WHERE  msg_id = l_msg_id AND aus_id = l_aus_id AND emoji = l_emoji;
+    COMMIT;
+    HTP.p('{"status":"ok","reacted":0}');
+  ELSE
+    INSERT INTO CHAT_REACTIONS (msg_id, aus_id, emoji)
+    VALUES (l_msg_id, l_aus_id, l_emoji);
+    COMMIT;
+    HTP.p('{"status":"ok","reacted":1}');
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  HTP.p('{"error":"' || REPLACE(SQLERRM,'"','') || '"}');
+END;
+
+
+-- ============================================================
+-- 16. msTogglePinMsg — ghim/bỏ ghim 1 tin trong hội thoại
+--     x01 = conv_id | x02 = msg_id. Mọi thành viên đều ghim được.
+-- ============================================================
+DECLARE
+  l_conv_id NUMBER := TO_NUMBER(NVL(TRIM(apex_application.g_x01),'0'));
+  l_msg_id  NUMBER := TO_NUMBER(NVL(TRIM(apex_application.g_x02),'0'));
+  l_aus_id  NUMBER;
+  l_member  NUMBER := 0;
+  l_exist   NUMBER := 0;
+BEGIN
+  OWA_UTIL.MIME_HEADER('application/json', TRUE, 'UTF-8');
+  IF :APP_USER IS NULL OR :APP_USER IN ('nobody','NOBODY') THEN
+    HTP.p('{"error":"auth"}'); RETURN;
+  END IF;
+  SELECT aus_id INTO l_aus_id FROM APP_USERS WHERE LOWER(user_name) = LOWER(:APP_USER);
+
+  -- Chỉ thành viên hội thoại mới được ghim
+  SELECT COUNT(*) INTO l_member FROM CHAT_PARTICIPANTS
+  WHERE  conv_id = l_conv_id AND aus_id = l_aus_id;
+  IF l_member = 0 THEN HTP.p('{"error":"not_member"}'); RETURN; END IF;
+
+  SELECT COUNT(*) INTO l_exist FROM CHAT_PINNED_MSGS
+  WHERE  conv_id = l_conv_id AND msg_id = l_msg_id;
+
+  IF l_exist > 0 THEN
+    DELETE FROM CHAT_PINNED_MSGS WHERE conv_id = l_conv_id AND msg_id = l_msg_id;
+    COMMIT;
+    HTP.p('{"status":"ok","pinned":0}');
+  ELSE
+    INSERT INTO CHAT_PINNED_MSGS (conv_id, msg_id, aus_id)
+    VALUES (l_conv_id, l_msg_id, l_aus_id);
+    COMMIT;
+    HTP.p('{"status":"ok","pinned":1}');
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  HTP.p('{"error":"' || REPLACE(SQLERRM,'"','') || '"}');
+END;
+
+
+-- ============================================================
+-- 17. msPinnedListHtml — danh sách tin đã ghim của hội thoại (HTML)
+--     x01 = conv_id
+-- ============================================================
+DECLARE
+  l_conv_id NUMBER := TO_NUMBER(NVL(TRIM(apex_application.g_x01),'0'));
+  l_aus_id  NUMBER;
+  l_count   NUMBER := 0;
+BEGIN
+  OWA_UTIL.MIME_HEADER('text/html', TRUE, 'UTF-8');
+  IF :APP_USER IS NULL OR :APP_USER IN ('nobody','NOBODY') THEN
+    HTP.p(''); RETURN;
+  END IF;
+
+  HTP.p('<div data-pin-count="0" id="ms-pin-data" style="display:none"></div>');
+
+  FOR p IN (
+    SELECT m.msg_id,
+           REGEXP_REPLACE(NVL(e.full_name,'?'),'[[:cntrl:]]','') AS from_name,
+           CASE WHEN m.delete_date IS NOT NULL THEN '[Tin nhắn đã bị thu hồi]'
+                ELSE SUBSTR(NVL(m.body,''),1,120) END AS body
+    FROM   CHAT_PINNED_MSGS pp
+    JOIN   CHAT_MESSENGERS  m ON m.msg_id = pp.msg_id
+    JOIN   APP_USERS  u ON u.aus_id = m.from_aus_id
+    JOIN   EMPLOYEES  e ON e.emp_id = u.emp_id
+    WHERE  pp.conv_id = l_conv_id
+    ORDER  BY pp.pin_date DESC
+  ) LOOP
+    l_count := l_count + 1;
+    HTP.p('<div class="ms-pin-item" data-msg-id="' || p.msg_id || '"'
+          || ' onclick="msJumpToMsg(' || p.msg_id || ')">');
+    HTP.p('  <div class="ms-pin-item-main">');
+    HTP.p('    <div class="ms-pin-item-name">' || HTF.ESCAPE_SC(p.from_name) || '</div>');
+    HTP.p('    <div class="ms-pin-item-body">' || HTF.ESCAPE_SC(p.body) || '</div>');
+    HTP.p('  </div>');
+    HTP.p('  <button type="button" class="ms-pin-unpin" title="Bỏ ghim"'
+          || ' onclick="event.stopPropagation();msTogglePinMsg(' || p.msg_id || ')">'
+          || '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+          || '</button>');
+    HTP.p('</div>');
+  END LOOP;
+EXCEPTION WHEN OTHERS THEN
+  HTP.p('');
+END;
+
+
+-- ============================================================
+-- 18. msForwardListHtml — danh sách hội thoại để chuyển tiếp (HTML)
+--     x01 = search. Item có data-conv-id + data-conv-name.
+-- ============================================================
+DECLARE
+  l_search VARCHAR2(200) := LOWER(TRIM(apex_application.g_x01));
+  l_aus_id NUMBER;
+BEGIN
+  OWA_UTIL.MIME_HEADER('text/html', TRUE, 'UTF-8');
+  IF :APP_USER IS NULL OR :APP_USER IN ('nobody','NOBODY') THEN
+    HTP.p(''); RETURN;
+  END IF;
+  SELECT aus_id INTO l_aus_id FROM APP_USERS WHERE LOWER(user_name) = LOWER(:APP_USER);
+
+  FOR c IN (
+    SELECT c.conv_id, c.conv_type,
+           CASE c.conv_type
+             WHEN 'CHANNEL' THEN NVL(c.name,'(Không tên)')
+             ELSE (
+               SELECT REGEXP_REPLACE(NVL(e2.full_name,'Unknown'),'[[:cntrl:]]','')
+               FROM   CHAT_PARTICIPANTS p2
+               JOIN   APP_USERS u2 ON u2.aus_id = p2.aus_id
+               JOIN   EMPLOYEES e2 ON e2.emp_id = u2.emp_id
+               WHERE  p2.conv_id = c.conv_id AND p2.aus_id != l_aus_id
+               FETCH FIRST 1 ROW ONLY
+             )
+           END AS display_name
+    FROM   CHAT_CONVERSATIONS c
+    JOIN   CHAT_PARTICIPANTS  p ON p.conv_id = c.conv_id AND p.aus_id = l_aus_id
+    WHERE  NVL(p.is_hidden,0) = 0
+    ORDER  BY c.last_msg_date DESC NULLS LAST
+  ) LOOP
+    IF l_search IS NULL OR LOWER(NVL(c.display_name,'')) LIKE '%'||l_search||'%' THEN
+      DECLARE
+        l_initl VARCHAR2(4)  := UPPER(SUBSTR(REGEXP_SUBSTR(c.display_name,'\S+$'),1,1));
+        l_hue   VARCHAR2(10) := TO_CHAR(MOD(c.conv_id*47, 360));
+      BEGIN
+        HTP.p('<div class="ms-fwd-item" data-conv-id="' || c.conv_id || '"'
+              || ' data-conv-name="' || HTF.ESCAPE_SC(c.display_name) || '"'
+              || ' onclick="msSelectForward(this)">');
+        HTP.p('  <div class="ms-fwd-av' || CASE WHEN c.conv_type='CHANNEL' THEN ' group' END
+              || '" style="background:hsl(' || l_hue || ',55%,52%)">'
+              || CASE WHEN c.conv_type='CHANNEL' THEN '<i class="fa fa-users"></i>'
+                      ELSE NVL(l_initl,'?') END || '</div>');
+        HTP.p('  <div style="flex:1;min-width:0"><div class="ms-fwd-name">'
+              || HTF.ESCAPE_SC(c.display_name) || '</div></div>');
+        HTP.p('</div>');
+      END;
+    END IF;
+  END LOOP;
+EXCEPTION WHEN OTHERS THEN
+  HTP.p('');
 END;

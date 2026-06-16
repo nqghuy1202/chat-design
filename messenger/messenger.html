@@ -58,84 +58,42 @@
 
       </div><!-- /ms-lp-s1 -->
 
-      <!-- ── S2: Chọn liên hệ (DM) ── -->
+      <!-- ── S2: Soạn tin nhắn mới (recipient hợp nhất — DM + nhóm) ── -->
       <div id="ms-lp-s2">
 
         <!-- Header -->
         <div class="ms-lp-sh">
-          <button type="button" class="ms-lp-back-btn" onclick="msNewConvBack()" title="Quay lại">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          <button type="button" class="ms-lp-back-btn" onclick="msComposeClose()" title="Đóng">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
           <span class="ms-lp-sh-title">Tin nhắn mới</span>
         </div>
 
-        <!-- Search -->
-        <div class="ms-lp-search-wrap">
-          <div class="ms-search-wrap">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-            </svg>
-            <input type="text" id="ms-s2-search" placeholder="Tìm theo tên..." oninput="msS2Search(this.value)">
+        <!-- Recipient field: "Tới:" + chips + ô tìm gộp chung -->
+        <div class="ms-compose-recip-wrap">
+          <div id="ms-compose-recip" class="ms-compose-recip">
+            <span class="ms-compose-to-label">Tới:</span>
+            <span id="ms-s2-chips" class="ms-compose-chips"></span>
+            <input type="text" id="ms-s2-search" class="ms-compose-input" placeholder="Tìm theo tên..." autocomplete="off" oninput="msS2Search(this.value)">
           </div>
+        </div>
+
+        <!-- Tên nhóm: tùy chọn, reveal khi ≥2 người -->
+        <div id="ms-compose-name-wrap" class="ms-compose-name-wrap">
+          <input type="text" id="ms-group-name" class="ms-s3-name-input" placeholder="Tên nhóm (tùy chọn)..." oninput="msUpdateComposeBtn()">
         </div>
 
         <!-- Contact list -->
         <div id="ms-s2-contacts" class="ms-lp-list-wrap"></div>
 
-        <!-- Footer: Tạo nhóm -->
+        <!-- Footer: nút chính động (Nhắn tin / Tạo nhóm) -->
         <div class="ms-lp-sf">
-          <button type="button" class="ms-lp-grp-btn" onclick="msOpenNewGroup()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-            Tạo nhóm
+          <button type="button" id="ms-compose-action" class="ms-lp-create-btn" disabled onclick="msComposeSubmit()">
+            Nhắn tin
           </button>
         </div>
 
       </div><!-- /ms-lp-s2 -->
-
-      <!-- ── S3: Tạo nhóm (chọn thành viên + đặt tên) ── -->
-      <div id="ms-lp-s3">
-
-        <!-- Header -->
-        <div class="ms-lp-sh">
-          <button type="button" class="ms-lp-back-btn" onclick="msGroupBack()" title="Quay lại">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          <span class="ms-lp-sh-title">Tạo nhóm</span>
-          <span class="ms-lp-step-pill">Bước 2</span>
-        </div>
-
-        <!-- Group name -->
-        <div class="ms-s3-name-wrap">
-          <input type="text" id="ms-group-name" class="ms-s3-name-input" placeholder="Tên nhóm..." oninput="msUpdateGroupCreateBtn()">
-        </div>
-
-        <!-- Chips -->
-        <div id="ms-s3-chips"></div>
-
-        <!-- Search -->
-        <div class="ms-lp-search-wrap" style="padding-top:6px">
-          <div class="ms-search-wrap">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-            </svg>
-            <input type="text" id="ms-s3-search" placeholder="Tìm thành viên..." oninput="msS3Search(this.value)">
-          </div>
-        </div>
-
-        <!-- Contact list -->
-        <div id="ms-s3-contacts" class="ms-lp-list-wrap"></div>
-
-        <!-- Footer: Tạo nhóm button -->
-        <div class="ms-lp-sf">
-          <button type="button" id="ms-create-group-btn" class="ms-lp-create-btn" disabled onclick="msCreateGroup()">
-            Tạo nhóm
-          </button>
-        </div>
-
-      </div><!-- /ms-lp-s3 -->
 
     </div><!-- /ms-lp-track -->
   </div><!-- /#ms-left -->
@@ -166,6 +124,22 @@
           </svg>
         </button>
       </div>
+    </div>
+
+    <!-- Banner tin ghim -->
+    <div id="ms-pin-banner">
+      <div class="ms-pin-banner-row" onclick="msTogglePinList()">
+        <div class="ms-pin-accent"></div>
+        <div class="ms-pin-banner-main">
+          <div class="ms-pin-banner-label">Tin ghim</div>
+          <div class="ms-pin-banner-text" id="ms-pin-banner-text"></div>
+        </div>
+        <span class="ms-pin-banner-count" id="ms-pin-banner-count"></span>
+        <button type="button" class="ms-pin-banner-toggle" title="Xem tin đã ghim">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
+      <div id="ms-pin-list"></div>
     </div>
 
     <!-- Messages -->
@@ -217,6 +191,28 @@
       </button>
     </div>
     <div id="ms-info-content"></div>
+  </div>
+
+  <!-- ── Context menu hội thoại (dot-menu) ── -->
+  <div id="ms-conv-menu" class="ms-conv-menu"></div>
+
+  <!-- ── Thanh quick-react 6 emoji (floating) ── -->
+  <div id="ms-react-bar" class="ms-react-bar"></div>
+
+  <!-- ── Modal chuyển tiếp ── -->
+  <div id="ms-forward-modal" onclick="msCloseForward(event)">
+    <div class="ms-fwd-card">
+      <div class="ms-fwd-head">
+        <div class="ms-fwd-title">Chuyển tiếp tin nhắn</div>
+        <div class="ms-fwd-quote" id="ms-fwd-quote"></div>
+      </div>
+      <input type="text" class="ms-fwd-search" id="ms-fwd-search" placeholder="Tìm hội thoại..." oninput="msForwardSearch(this.value)">
+      <div id="ms-fwd-list"></div>
+      <div class="ms-fwd-foot">
+        <button type="button" class="ms-fwd-btn cancel" onclick="msCloseForward()">Hủy</button>
+        <button type="button" class="ms-fwd-btn send" id="ms-fwd-send" onclick="msSendForward()">Chuyển tiếp</button>
+      </div>
+    </div>
   </div>
 
 </div><!-- /#ms-root -->
