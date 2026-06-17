@@ -105,6 +105,35 @@
 .ms-filter-chip.active { background: #EFF6FF; color: #2563EB; }
 .ms-filter-chip:hover:not(.active) { background: #F1F5F9; color: #475569; }
 
+/* ── Scope segmented (Chung tu nay / Tat ca) — chi hien khi co entryDoc ── */
+#ms-scope-box { display: none; padding: 10px 10px 4px; flex-shrink: 0; }
+#ms-scope-box.on { display: block; }
+#ms-scope-doc-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 600; color: #64748B;
+  margin-bottom: 8px;
+}
+#ms-scope-doc-label svg { flex-shrink: 0; }
+.ms-scope-seg {
+  display: flex; gap: 2px; padding: 3px;
+  background: #EEF2F7; border-radius: 9px;
+}
+.ms-scope-seg button {
+  flex: 1; padding: 6px 8px; border: none; cursor: pointer;
+  background: transparent; border-radius: 7px;
+  font-family: inherit; font-size: 12px; font-weight: 600; color: #64748B;
+  transition: background .15s, color .15s, box-shadow .15s;
+}
+.ms-scope-seg button.active { background: #fff; color: #2563EB; box-shadow: 0 1px 2px rgba(15,23,42,.08); }
+.ms-scope-seg button:not(.active):hover { color: #334155; }
+.ms-seg-count { display: inline-block; margin-left: 4px; font-size: 11px; font-weight: 700; color: #2563EB; }
+
+/* Section "Dang xem" — ghim hoi thoai cua entryDoc len dau khi xem Tat ca */
+/* Ket hop voi .ms-section-label (xem messenger/docs/callbacks.sql msConvListHtml) */
+.ms-section-label.ms-viewing-label {
+  color: #2563EB; text-transform: none; letter-spacing: 0.01em; font-size: 11px;
+}
+
 /* Conv list */
 #ms-conv-list {
   flex: 1;
@@ -203,6 +232,15 @@
   font-size: 11px;
   color: #94A3B8;
   flex-shrink: 0;
+}
+/* Badge chứng từ — chỉ hiện trên hội thoại conv_type='DOC' */
+.ms-ci-docbadge {
+  font-size: 10.5px;
+  color: #94A3B8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
 }
 .ms-ci-preview {
   flex: 1;
@@ -774,6 +812,37 @@
 /* Danh sách tin ghim (mở rộng) */
 #ms-pin-list { display: none; border-top: 1px solid #F1F5F9; max-height: 240px; overflow-y: auto; }
 #ms-pin-banner.expanded #ms-pin-list { display: block; }
+
+/* ── Banner cross-doc: tin moi o hoi thoai khac (chi hien khi scope=DOC) ── */
+#ms-crossdoc-banner {
+  display: none; align-items: center; gap: 10px;
+  flex-shrink: 0; padding: 9px 16px;
+  background: #EFF6FF; border-bottom: 1px solid #BFDBFE;
+  animation: ms-cd-slide .22s cubic-bezier(.16,1,.3,1);
+}
+#ms-crossdoc-banner.on { display: flex; }
+@keyframes ms-cd-slide { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+.ms-cd-icon {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #2563EB; color: #fff;
+}
+.ms-cd-text { flex: 1; min-width: 0; font-size: 12.5px; color: #334155; line-height: 1.45; }
+.ms-cd-text b { color: #1D4ED8; font-weight: 700; }
+.ms-cd-view {
+  flex-shrink: 0; padding: 5px 12px; border: none; cursor: pointer;
+  background: #2563EB; color: #fff; border-radius: 8px;
+  font-family: inherit; font-size: 12px; font-weight: 600;
+  transition: filter .15s, transform .05s;
+}
+.ms-cd-view:hover { filter: brightness(1.05); }
+.ms-cd-view:active { transform: translateY(1px); }
+.ms-cd-dismiss {
+  flex-shrink: 0; width: 22px; height: 22px; border: none; cursor: pointer;
+  background: transparent; color: #94A3B8; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.ms-cd-dismiss:hover { background: rgba(15,23,42,.06); color: #475569; }
 .ms-pin-item {
   display: flex;
   align-items: flex-start;
@@ -937,6 +1006,139 @@
   pointer-events: none;
 }
 
+/* File preview bar - hien chip file/anh truoc khi gui */
+.ms-file-preview-bar {
+  display: none;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 12px 0;
+}
+.ms-file-preview-bar.has-files { display: flex; }
+
+/* ── File khong phai anh: the vuong giong het kich thuoc anh (icon tren, ten/size duoi) ── */
+.ms-file-chip {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px 6px;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  background: #F8FAFC;
+  box-sizing: border-box;
+}
+.ms-file-chip-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #E2E8F0;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ms-file-chip-icon--label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.ms-file-chip-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+  gap: 1px;
+}
+.ms-file-chip-name {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: #334155;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: center;
+}
+.ms-file-chip-size {
+  font-size: 9.5px;
+  color: #94A3B8;
+  white-space: nowrap;
+}
+.ms-file-chip-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  border: none;
+  background: rgba(15,23,42,.75);
+  color: #fff;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(15,23,42,.3);
+}
+.ms-file-chip-remove:hover { background: rgba(15,23,42,.9); color: #fff; }
+
+/* ── Anh: dung chung kich thuoc the voi file, chi thay border/padding bang anh full-bleed ── */
+.ms-file-chip--image {
+  padding: 0;
+  border: none;
+  background: transparent;
+  overflow: visible;
+}
+.ms-file-chip--image .ms-file-chip-thumb {
+  width: 84px;
+  height: 84px;
+  border-radius: 12px;
+  object-fit: cover;
+  display: block;
+  background: #E2E8F0;
+  border: 1px solid rgba(15,23,42,.06);
+}
+.ms-file-chip--image .ms-file-chip-text { display: none; }
+
+/* Formatting toolbar - thu gọn mặc định, hiện khi focus vào ô nhập */
+.ms-fmt-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 12px;
+  border-bottom: 1px solid #F8FAFC;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height .16s cubic-bezier(.16,1,.3,1), opacity .12s, padding .16s;
+}
+.ms-fmt-toolbar.visible { max-height: 40px; opacity: 1; padding: 8px 12px 6px; }
+.ms-tb-sep { width: 1px; height: 16px; background: #E2E8F0; margin: 0 4px; }
+
+.ms-tb-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background .1s, color .1s;
+}
+.ms-tb-btn:hover { background: #F1F5F9; color: #475569; }
+
 /* Bottom row: toolbar + send */
 #ms-input-row {
   display: flex;
@@ -944,6 +1146,73 @@
   justify-content: space-between;
   padding: 4px 10px 8px;
 }
+.ms-input-row-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Menu đính kèm (Ảnh/Video, Tệp tin) */
+.ms-attach-menu-wrap { position: relative; }
+.ms-attach-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: -8px;
+  z-index: 200;
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(15,23,42,.10), 0 2px 8px rgba(15,23,42,.06);
+  padding: 4px;
+  width: 168px;
+  opacity: 0;
+  transform: scale(.94) translateY(8px);
+  transform-origin: bottom left;
+  transition: opacity .14s cubic-bezier(.16,1,.3,1), transform .14s cubic-bezier(.16,1,.3,1);
+  pointer-events: none;
+}
+.ms-attach-menu.open { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
+.ms-attach-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #1E293B;
+  text-align: left;
+}
+.ms-attach-menu-item:hover { background: #F1F5F9; }
+.ms-attach-menu-item svg { color: #64748B; flex-shrink: 0; }
+
+/* Emoji picker (khung rỗng - nội dung lưới emoji sẽ thêm khi làm chức năng) */
+.ms-emoji-picker-wrap { position: relative; }
+.ms-emoji-picker {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: -8px;
+  z-index: 200;
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(15,23,42,.10), 0 2px 8px rgba(15,23,42,.06);
+  padding: 10px;
+  width: 268px;
+  min-height: 120px;
+  opacity: 0;
+  transform: scale(.94) translateY(8px);
+  transform-origin: bottom right;
+  transition: opacity .14s cubic-bezier(.16,1,.3,1), transform .14s cubic-bezier(.16,1,.3,1);
+  pointer-events: none;
+}
+.ms-emoji-picker.open { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
+
 #ms-send-btn {
   width: 32px;
   height: 32px;

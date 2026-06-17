@@ -603,6 +603,38 @@
       display: flex; align-items: center; justify-content: center; z-index: 1;
     }
 
+    /* ===== ATTACH MENU ===== */
+    .attach-menu-wrap { position: relative; }
+    .attach-menu {
+      position: absolute; bottom: calc(100% + 8px); left: -8px; z-index: 200;
+      background: white; border: 1px solid #E2E8F0; border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(15,23,42,0.10), 0 2px 8px rgba(15,23,42,0.06);
+      padding: 4px; width: 168px;
+      opacity: 0; transform: scale(0.94) translateY(8px); transform-origin: bottom left;
+      transition: opacity 0.14s cubic-bezier(0.16,1,0.3,1), transform 0.14s cubic-bezier(0.16,1,0.3,1);
+      pointer-events: none;
+    }
+    .attach-menu.open { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
+    .attach-menu-item {
+      width: 100%; display: flex; align-items: center; gap: 9px;
+      padding: 7px 9px; border-radius: 8px;
+      border: none; background: transparent; cursor: pointer;
+      font-family: 'Outfit', system-ui, sans-serif;
+      font-size: 12.5px; font-weight: 500; color: #1E293B; text-align: left;
+      transition: background 0.1s;
+    }
+    .attach-menu-item:hover { background: #F1F5F9; }
+    .attach-menu-item svg { color: #64748B; flex-shrink: 0; }
+
+    /* ===== FORMATTING TOOLBAR (collapsed by default) ===== */
+    .fmt-toolbar {
+      display: flex; align-items: center; gap: 2px; padding: 0 12px;
+      border-bottom: 1px solid #F8FAFC;
+      max-height: 0; opacity: 0; overflow: hidden;
+      transition: max-height 0.16s cubic-bezier(0.16,1,0.3,1), opacity 0.12s, padding 0.16s;
+    }
+    .fmt-toolbar.visible { max-height: 40px; opacity: 1; padding: 10px 12px 8px; }
+
     /* ===== EMOJI PICKER ===== */
     .emoji-picker-wrap { position: relative; }
     .emoji-picker {
@@ -974,6 +1006,140 @@
     .bot-event-desc { font-size: 11.5px; color: #64748B; margin-top: 2px; line-height: 1.5; }
     .bot-event-meta { font-size: 10.5px; color: #94A3B8; margin-top: 4px; }
 
+    /* ===== UNIFIED MODAL: scope segmented + cross-doc banner + entry launchers ===== */
+    /* Scope segmented control (chi hien khi vao tu chung tu) */
+    #lp-scope { display: none; padding: 8px 12px 4px; }
+    #lp-scope.on { display: block; }
+    .scope-doc-label {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 600; color: #64748B;
+      margin-bottom: 8px; letter-spacing: 0.01em;
+    }
+    .scope-doc-label svg { flex-shrink: 0; }
+    .scope-seg {
+      display: flex; gap: 2px; padding: 3px;
+      background: #EEF2F7; border-radius: 9px;
+    }
+    .scope-seg button {
+      flex: 1; padding: 6px 8px; border: none; cursor: pointer;
+      background: transparent; border-radius: 7px;
+      font-family: inherit; font-size: 12px; font-weight: 600; color: #64748B;
+      transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+    }
+    .scope-seg button.active {
+      background: #FFFFFF; color: var(--c-main);
+      box-shadow: 0 1px 2px rgba(15,23,42,0.08);
+    }
+    .scope-seg button:not(.active):hover { color: #334155; }
+    .scope-seg .seg-count {
+      display: inline-block; margin-left: 4px; font-size: 11px; font-weight: 700;
+      color: var(--c-main);
+    }
+    /* "Dang xem" section pill trong tab Tat ca */
+    .lp-viewing-label {
+      display: flex; align-items: center; gap: 6px;
+      padding: 10px 10px 6px; font-size: 11px; font-weight: 700;
+      color: var(--c-main); text-transform: none;
+    }
+
+    /* Cross-doc banner (duoi chat header) */
+    #crossdoc-banner {
+      display: none; align-items: center; gap: 10px;
+      flex-shrink: 0; padding: 9px 16px;
+      background: var(--c-tint); border-bottom: 1px solid var(--c-border);
+      animation: cdSlide 0.22s cubic-bezier(0.16,1,0.3,1);
+    }
+    #crossdoc-banner.on { display: flex; }
+    @keyframes cdSlide { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+    .cd-icon {
+      width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--c-main); color: #fff;
+    }
+    .cd-text { flex: 1; min-width: 0; font-size: 12.5px; color: #334155; line-height: 1.45; }
+    .cd-text b { color: var(--c-dark); font-weight: 700; }
+    .cd-view {
+      flex-shrink: 0; padding: 5px 12px; border: none; cursor: pointer;
+      background: var(--c-main); color: #fff; border-radius: 8px;
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      transition: filter 0.15s, transform 0.05s;
+    }
+    .cd-view:hover { filter: brightness(1.05); }
+    .cd-view:active { transform: translateY(1px); }
+    .cd-dismiss {
+      flex-shrink: 0; width: 22px; height: 22px; border: none; cursor: pointer;
+      background: transparent; color: #94A3B8; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .cd-dismiss:hover { background: rgba(15,23,42,0.06); color: #475569; }
+
+    /* Mock ERP system header (cua vao 1: icon tin nhan + badge tong) */
+    #erp-header {
+      position: fixed; top: 0; left: 0; right: 0; height: 52px; z-index: 30;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 22px; background: #0F172A; color: #fff;
+    }
+    #erp-header .erp-brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px; letter-spacing: -0.01em; }
+    #erp-header .erp-brand .dot { width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(135deg,#2563EB,#1D4ED8); display:flex; align-items:center; justify-content:center; }
+    #erp-header .erp-nav { display: flex; align-items: center; gap: 22px; font-size: 13px; color: #94A3B8; }
+    #erp-header .erp-actions { display: flex; align-items: center; gap: 6px; }
+    .erp-icon-btn {
+      position: relative; width: 36px; height: 36px; border: none; cursor: pointer;
+      background: transparent; color: #CBD5E1; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, color 0.15s;
+    }
+    .erp-icon-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    #erp-msg-badge {
+      position: absolute; top: 2px; right: 2px; min-width: 17px; height: 17px;
+      padding: 0 4px; border-radius: 9px; background: #EF4444; color: #fff;
+      font-size: 10.5px; font-weight: 700; line-height: 17px; text-align: center;
+      border: 2px solid #0F172A; display: none;
+    }
+    #erp-msg-badge.on { display: block; }
+
+    /* Mock document page card (cua vao 2: nut Trao doi o right column chung tu) */
+    #doc-mock {
+      position: fixed; z-index: 20; right: 32px; top: 50%; transform: translateY(-50%);
+      width: 280px; background: #fff; border: 1px solid #E2E8F0; border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(15,23,42,0.10); overflow: hidden;
+    }
+    #doc-mock .dm-head { padding: 14px 16px; border-bottom: 1px solid #F1F5F9; }
+    #doc-mock .dm-tag { display: inline-block; font-size: 10.5px; font-weight: 700; color: #1D4ED8; background: #DBEAFE; padding: 2px 7px; border-radius: 5px; letter-spacing: 0.04em; }
+    #doc-mock .dm-no { margin-top: 8px; font-size: 16px; font-weight: 700; color: #0F172A; letter-spacing: -0.01em; }
+    #doc-mock .dm-sub { margin-top: 3px; font-size: 12px; color: #64748B; }
+    #doc-mock .dm-body { padding: 12px 16px 16px; }
+    #doc-mock .dm-row { display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; }
+    #doc-mock .dm-row span:first-child { color: #94A3B8; }
+    #doc-mock .dm-row span:last-child { color: #334155; font-weight: 500; }
+    .doc-discuss-btn {
+      margin-top: 12px; width: 100%; padding: 10px; border: none; cursor: pointer;
+      background: var(--c-main); color: #fff; border-radius: 10px;
+      font-family: inherit; font-size: 13px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: filter 0.15s, transform 0.05s;
+    }
+    .doc-discuss-btn:hover { filter: brightness(1.05); }
+    .doc-discuss-btn:active { transform: translateY(1px); }
+    .doc-discuss-btn .ddc { background: rgba(255,255,255,0.25); border-radius: 6px; padding: 0 6px; font-size: 11px; font-weight: 700; }
+
+    /* Demo control: gia lap tin moi o chung tu khac (chi hien khi modal mo) */
+    #demo-sim {
+      position: fixed; z-index: 60; top: 62px; left: 50%; transform: translateX(-50%);
+      display: none; align-items: center; gap: 8px;
+      padding: 7px 8px 7px 14px; background: #1E293B; color: #fff;
+      border-radius: 11px; box-shadow: 0 8px 24px rgba(15,23,42,0.28);
+      font-size: 12.5px;
+    }
+    #demo-sim.on { display: flex; }
+    #demo-sim .ds-label { color: #CBD5E1; }
+    #demo-sim button {
+      border: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600;
+      background: var(--c-main); color: #fff; padding: 6px 12px; border-radius: 8px;
+      transition: filter 0.15s;
+    }
+    #demo-sim button:hover { filter: brightness(1.1); }
+
     /* ===== NGU HANH THEME OVERRIDES (all use CSS variables) ===== */
     /* My message bubble */
     .msg-me-bubble { background: var(--c-main) !important; }
@@ -1042,6 +1208,47 @@
     <div style="color:white;font-size:20px;font-weight:600;letter-spacing:-0.025em;">Nexus Studio</div>
   </div>
 
+  <!-- ===== CUA VAO 1: Mock ERP system header (icon tin nhan + badge tong) ===== -->
+  <div id="erp-header">
+    <div class="erp-brand">
+      <span class="dot"><svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg></span>
+      Nexus ERP
+    </div>
+    <div class="erp-nav"><span>Tong quan</span><span>Ban hang</span><span>Kho</span><span>Ke toan</span></div>
+    <div class="erp-actions">
+      <button class="erp-icon-btn" title="Tim kiem"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+      <button class="erp-icon-btn" id="erp-msg-btn" onclick="openModalAll()" title="Tin nhan">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span id="erp-msg-badge"></span>
+      </button>
+      <button class="erp-icon-btn" title="Tai khoan"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg></button>
+    </div>
+  </div>
+
+  <!-- ===== CUA VAO 2: Mock document page (nut Trao doi o right column chung tu) ===== -->
+  <div id="doc-mock">
+    <div class="dm-head">
+      <span class="dm-tag">DON HANG BAN</span>
+      <div class="dm-no">SO-2024-018</div>
+      <div class="dm-sub">Cty TNHH ABC Technology</div>
+    </div>
+    <div class="dm-body">
+      <div class="dm-row"><span>Ngay</span><span>16/06/2026</span></div>
+      <div class="dm-row"><span>Gia tri</span><span>48.200.000 VND</span></div>
+      <div class="dm-row"><span>Trang thai</span><span>Cho duyet gia</span></div>
+      <button class="doc-discuss-btn" onclick="openModalDoc('SO','SO-2024-018','Don hang ban')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Trao doi <span class="ddc" id="doc-mock-count">2</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Demo: gia lap tin moi o chung tu khac -->
+  <div id="demo-sim">
+    <span class="ds-label">Demo:</span>
+    <button onclick="simulateCrossDoc()">Gia lap tin moi o hoi thoai khac</button>
+  </div>
+
   <!-- Reopen button -->
   <button id="reopen-btn" onclick="openModal()"
     style="display:none;position:fixed;bottom:32px;right:32px;z-index:40;align-items:center;gap:8px;background:#2563EB;color:white;font-size:14px;font-weight:500;padding:10px 16px;border-radius:12px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1),0 4px 6px -2px rgba(0,0,0,0.05);border:none;cursor:pointer;">
@@ -1094,8 +1301,20 @@
           </div>
         </div>
 
+        <!-- Scope segmented (chi hien khi vao tu chung tu) -->
+        <div id="lp-scope">
+          <div class="scope-doc-label">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span id="lp-scope-doc">SO-2024-018</span>
+          </div>
+          <div class="scope-seg">
+            <button id="seg-doc" class="active" onclick="setScope('doc')">Chung tu nay<span class="seg-count" id="seg-doc-count"></span></button>
+            <button id="seg-all" onclick="setScope('all')">Tat ca</button>
+          </div>
+        </div>
+
         <!-- Filter tabs -->
-        <div style="display:flex;align-items:center;gap:4px;padding:0 12px 8px;">
+        <div id="lp-filter-tabs" style="display:flex;align-items:center;gap:4px;padding:0 12px 8px;">
           <button class="filter-tab active">All</button>
           <button class="filter-tab">Unread</button>
           <button class="filter-tab">Groups</button>
@@ -1338,6 +1557,14 @@
           <button class="pin-close" onclick="closePinBanner()" title="Dong">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
+        </div>
+
+        <!-- Cross-doc banner: tin moi o hoi thoai khac khi dang scope chung tu -->
+        <div id="crossdoc-banner">
+          <div class="cd-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <div class="cd-text" id="crossdoc-text"></div>
+          <button class="cd-view" onclick="viewCrossDoc()">Xem</button>
+          <button class="cd-dismiss" onclick="closeCrossDocBanner()" title="Bo qua"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
 
         <!-- Messages wrapper -->
@@ -1598,8 +1825,8 @@
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
-            <!-- Formatting toolbar -->
-            <div style="display:flex;align-items:center;gap:2px;padding:10px 12px 8px;border-bottom: 1px solid #F8FAFC;">
+            <!-- Formatting toolbar (collapsed by default, shown on input focus) -->
+            <div id="fmt-toolbar" class="fmt-toolbar">
               <button class="tb-btn" title="Bold"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg></button>
               <button class="tb-btn" title="Italic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg></button>
               <button class="tb-btn" title="Code"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>
@@ -1610,14 +1837,21 @@
 
             <!-- Text input -->
             <div id="chat-input" contenteditable="true" data-placeholder="Message Linh Tran..."
-              onkeydown="handleKeyDown(event)" class="thin-scroll"
+              onkeydown="handleKeyDown(event)" onfocus="setFmtToolbarVisible(true)" onblur="setFmtToolbarVisible(false)" class="thin-scroll"
               style="min-height:44px;max-height:128px;overflow-y:auto;padding:10px 16px;font-size:13.5px;color:#1E293B;line-height:1.6;outline:none;font-family:'Outfit',system-ui,sans-serif;"></div>
 
             <!-- Bottom row -->
             <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 12px 10px;">
               <div style="display:flex;align-items:center;gap:2px;">
-                <button class="tb-btn" title="Attach file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
-                <button class="tb-btn" title="Image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></button>
+                <div class="attach-menu-wrap">
+                  <button class="tb-btn" title="Dinh kem" data-attach-toggle onclick="toggleAttachMenu(event)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                  <div id="attach-menu" class="attach-menu">
+                    <button type="button" class="attach-menu-item"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span>Anh / Video</span></button>
+                    <button type="button" class="attach-menu-item"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><span>Tep tin</span></button>
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:2px;">
                 <div class="emoji-picker-wrap">
                   <button class="tb-btn" title="Emoji" data-emoji-toggle onclick="toggleEmojiPicker(event)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
                   <div id="emoji-picker" class="emoji-picker">
@@ -1625,13 +1859,12 @@
                     <div id="emoji-grid-wrap"></div>
                   </div>
                 </div>
-                <button class="tb-btn" title="Mention"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg></button>
+                <button id="send-btn" onclick="sendMessage()" title="Send (Enter)"
+                  style="width:32px;height:32px;border-radius:9px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s,transform 0.1s;flex-shrink:0;margin-left:4px;"
+                  onmousedown="this.style.transform='scale(0.92)'" onmouseup="this.style.transform='scale(1)'">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
               </div>
-              <button id="send-btn" onclick="sendMessage()" title="Send (Enter)"
-                style="width:32px;height:32px;border-radius:9px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s,transform 0.1s;flex-shrink:0;"
-                onmousedown="this.style.transform='scale(0.92)'" onmouseup="this.style.transform='scale(1)'">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-              </button>
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:4px;margin-top:6px;padding:0 4px;font-size:11px;color:#CBD5E1;">
@@ -1801,6 +2034,7 @@
       },
       {
         id: 'hd-2024-001', type: 'voucher',
+        docType: 'HD', docNo: 'HD-2024-001', docLabel: 'Hoa don mua vao',
         voucherType: 'hoadon', voucherLabel: 'HOA DON',
         name: 'HD-2024-001', ini: 'HD',
         amount: '12.500.000', currency: 'VND',
@@ -1827,6 +2061,7 @@
       },
       {
         id: 'pc-2024-047', type: 'voucher',
+        docType: 'PC', docNo: 'PC-2024-047', docLabel: 'Phieu chi',
         voucherType: 'phieuchi', voucherLabel: 'PHIEU CHI',
         name: 'PC-2024-047', ini: 'PC',
         amount: '3.200.000', currency: 'VND',
@@ -1846,10 +2081,45 @@
           { name: 've-may-bay-khu-hoi.pdf',     size: '520 KB', color: '#F3F4F6', stroke: '#6B7280' },
         ],
       },
+      // ===== Chung tu SO-2024-018: mot chung tu co NHIEU hoi thoai =====
+      {
+        id: 'so18-team', type: 'group',
+        docType: 'SO', docNo: 'SO-2024-018', docLabel: 'Don hang ban',
+        name: 'Duyet don SO-2024-018', ini: 'SO', gradFrom: '#2563EB', gradTo: '#1D4ED8',
+        lastSender: 'Quan', lastMsg: 'Da xac nhan ton kho, chuyen ke toan duyet gia', time: '8p', unread: 2,
+        description: 'Nhom trao doi duyet don hang ban SO-2024-018',
+        members: [
+          { ini: 'QN', color: '#DC2626', name: 'Quan Nguyen',  role: 'Sales',        online: true  },
+          { ini: 'TB', color: '#D97706', name: 'Nguyen Thi B', role: 'Ke toan',      online: true  },
+          { ini: 'KH', color: '#0891B2', name: 'Kho Vu',       role: 'Thu kho',      online: false },
+        ],
+      },
+      {
+        id: 'so18-dm', type: 'dm',
+        docType: 'SO', docNo: 'SO-2024-018', docLabel: 'Don hang ban',
+        name: 'Kho Vu', ini: 'KH', color: '#0891B2', online: false,
+        role: 'Thu kho', email: 'kho.vu@nexusstudio.co',
+        phone: '0933 222 111', location: 'Kho Long Binh',
+        joined: 'Thang 2, 2024',
+        lastMsg: 'Hang con du, xuat duoc ngay khi co lenh', time: '20p', unread: 0,
+      },
     ];
 
     // ===== MESSAGES PER CONVERSATION =====
     const CONV_MESSAGES = {
+      'so18-team': `
+        <div class="date-sep">Hom nay</div>
+        <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;">
+          <div style="display:flex;gap:12px;"><div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background:#DC2626;">QN</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;"><span style="font-weight:600;color:#0F172A;font-size:13.5px;">Quan Nguyen</span><span style="color:#94A3B8;font-size:11px;">9:10 SA</span></div><p style="color:#334155;line-height:1.625;font-size:13.5px;">Don SO-2024-018 cua khach ABC da chot. Nho kho check ton truoc khi ke toan duyet gia nhe.</p></div></div>
+        </div>
+        <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;">
+          <div style="display:flex;gap:12px;"><div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background:#0891B2;">KH</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;"><span style="font-weight:600;color:#0F172A;font-size:13.5px;">Kho Vu</span><span style="color:#94A3B8;font-size:11px;">9:12 SA</span></div><p style="color:#334155;line-height:1.625;font-size:13.5px;">Da xac nhan ton kho, chuyen ke toan duyet gia.</p></div></div>
+        </div>`,
+      'so18-dm': `
+        <div class="date-sep">Hom nay</div>
+        <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;">
+          <div style="display:flex;gap:12px;"><div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px;background:#0891B2;">KH</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;"><span style="font-weight:600;color:#0F172A;font-size:13.5px;">Kho Vu</span><span style="color:#94A3B8;font-size:11px;">9:05 SA</span></div><p style="color:#334155;line-height:1.625;font-size:13.5px;">Hang con du, xuat duoc ngay khi co lenh xuat kho.</p></div></div>
+        </div>`,
       'linh-tran': `
         <div class="date-sep">Hom nay</div>
         <div class="message-group" style="padding:8px;margin-left:-8px;margin-right:-8px;margin-bottom:2px;">
@@ -2035,6 +2305,10 @@
     };
 
     let activeConvId = 'linh-tran';
+    // ===== UNIFIED MODAL: entry mode + scope + cross-doc awareness =====
+    let entryDoc = null;       // null = vao tu header (tat ca); {type,no,label} = vao tu chung tu
+    let scopeMode = 'all';     // 'all' | 'doc'
+    let crossDocQueue = [];    // [{convId, docNo, name}] tin den ngoai scope hien tai
     const messagesEl = document.getElementById('messages');
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
@@ -2088,11 +2362,119 @@
       const conv = CONV_DATA.find(c => c.id === id);
       if (!conv) return;
 
+      // Mo hoi thoai = da doc -> xoa unread, cap nhat badge tong
+      if (conv.unread) { conv.unread = 0; if (typeof updateGlobalBadge === 'function') updateGlobalBadge(); }
+      // Bo cac muc cross-doc thuoc conv vua mo
+      if (crossDocQueue.length) {
+        crossDocQueue = crossDocQueue.filter(q => q.convId !== id);
+        showCrossDocBanner();
+      }
+
       renderConvList();
       updateCenterHeader(conv);
       updateMessages(conv);
       renderRightPanel(conv);
       updateInputPlaceholder(conv);
+    }
+
+    // ===== UNIFIED MODAL: entry mode + scope + cross-doc awareness =====
+    function docConvs(docNo) {
+      return CONV_DATA.filter(c => c.docNo === docNo);
+    }
+    function totalUnread() {
+      return CONV_DATA.reduce((s, c) => s + (c.unread || 0), 0);
+    }
+    function updateGlobalBadge() {
+      const n = totalUnread();
+      const b = document.getElementById('erp-msg-badge');
+      if (n > 0) { b.textContent = n > 99 ? '99+' : n; b.classList.add('on'); }
+      else b.classList.remove('on');
+      const dc = document.getElementById('doc-mock-count');
+      if (dc) dc.textContent = docConvs('SO-2024-018').length;
+    }
+    function updateScopeUI() {
+      const scopeBox = document.getElementById('lp-scope');
+      const filterTabs = document.getElementById('lp-filter-tabs');
+      if (entryDoc) {
+        scopeBox.classList.add('on');
+        filterTabs.style.display = 'none';
+        document.getElementById('lp-scope-doc').textContent = entryDoc.no;
+        document.getElementById('seg-doc-count').textContent = docConvs(entryDoc.no).length;
+        document.getElementById('seg-doc').classList.toggle('active', scopeMode === 'doc');
+        document.getElementById('seg-all').classList.toggle('active', scopeMode === 'all');
+      } else {
+        scopeBox.classList.remove('on');
+        filterTabs.style.display = '';
+      }
+    }
+    function setScope(mode) {
+      scopeMode = mode;
+      updateScopeUI();
+      if (mode === 'doc' && entryDoc) {
+        const inDoc = docConvs(entryDoc.no);
+        if (inDoc.length && !inDoc.some(c => c.id === activeConvId)) { selectConv(inDoc[0].id); return; }
+      }
+      renderConvList();
+    }
+    function openModalAll() {
+      entryDoc = null; scopeMode = 'all';
+      crossDocQueue = []; closeCrossDocBanner();
+      updateScopeUI();
+      openModal();
+      renderConvList();
+    }
+    function openModalDoc(type, no, label) {
+      entryDoc = { type: type, no: no, label: label }; scopeMode = 'doc';
+      crossDocQueue = []; closeCrossDocBanner();
+      updateScopeUI();
+      openModal();
+      const inDoc = docConvs(no);
+      if (inDoc.length) selectConv(inDoc[0].id);
+      else renderConvList();
+    }
+    function pushCrossDoc(conv) {
+      crossDocQueue.push({ convId: conv.id, docNo: conv.docNo || null, name: conv.name });
+      showCrossDocBanner();
+    }
+    function showCrossDocBanner() {
+      const banner = document.getElementById('crossdoc-banner');
+      if (scopeMode !== 'doc' || !crossDocQueue.length) { banner.classList.remove('on'); return; }
+      const n = crossDocQueue.length;
+      const last = crossDocQueue[crossDocQueue.length - 1];
+      const where = last.docNo ? ('chung tu <b>' + escapeHtml(last.docNo) + '</b>') : ('<b>' + escapeHtml(last.name) + '</b>');
+      document.getElementById('crossdoc-text').innerHTML =
+        n === 1 ? ('Tin moi o ' + where) : (n + ' tin moi o hoi thoai khac &middot; moi nhat: ' + where);
+      banner.classList.add('on');
+    }
+    function closeCrossDocBanner() {
+      document.getElementById('crossdoc-banner').classList.remove('on');
+    }
+    function viewCrossDoc() {
+      const last = crossDocQueue[crossDocQueue.length - 1];
+      crossDocQueue = [];
+      closeCrossDocBanner();
+      scopeMode = 'all';
+      updateScopeUI();
+      if (last) selectConv(last.convId);
+      else renderConvList();
+    }
+    // Demo: gia lap tin moi den o conv NGOAI scope hien tai
+    function simulateCrossDoc() {
+      const candidates = CONV_DATA.filter(c => {
+        if (c.id === activeConvId) return false;
+        if (c.type === 'bot') return false;
+        if (scopeMode === 'doc' && entryDoc && c.docNo === entryDoc.no) return false;
+        return true;
+      });
+      if (!candidates.length) return;
+      const docCand = candidates.filter(c => c.docNo);
+      const pool = docCand.length ? docCand : candidates;
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      pick.unread = (pick.unread || 0) + 1;
+      pick.time = 'now';
+      updateGlobalBadge();
+      renderConvList();
+      pushCrossDoc(pick);
     }
 
     function updateCenterHeader(conv) {
@@ -2686,10 +3068,10 @@
       modal.style.opacity = '0';
       modal.style.transform = 'scale(0.97) translateY(8px)';
       backdrop.style.opacity = '0';
+      document.getElementById('demo-sim').classList.remove('on');
       setTimeout(() => {
         modal.style.display = 'none';
         backdrop.style.display = 'none';
-        document.getElementById('reopen-btn').style.display = 'flex';
       }, 210);
     }
 
@@ -3063,6 +3445,8 @@
       backdrop.style.opacity = '1';
       modal.style.opacity = '1';
       modal.style.transform = 'scale(1) translateY(0)';
+      document.getElementById('demo-sim').classList.add('on');
+      updateGlobalBadge();
       setTimeout(() => messagesEl.scrollTop = messagesEl.scrollHeight, 50);
     }
 
@@ -3170,6 +3554,24 @@
         }, 50);
       }
     }
+    let _attachOpen = false;
+    function toggleAttachMenu(e) {
+      e.stopPropagation();
+      _attachOpen = !_attachOpen;
+      const menu = document.getElementById('attach-menu');
+      menu.classList.toggle('open', _attachOpen);
+    }
+    let _fmtToolbarTimer = null;
+    function setFmtToolbarVisible(visible) {
+      clearTimeout(_fmtToolbarTimer);
+      const toolbar = document.getElementById('fmt-toolbar');
+      if (!toolbar) return;
+      if (visible) {
+        toolbar.classList.add('visible');
+      } else {
+        _fmtToolbarTimer = setTimeout(function() { toolbar.classList.remove('visible'); }, 150);
+      }
+    }
     function filterEmoji(q) { renderEmojiGrid(q); }
     function renderEmojiGrid(q) {
       const wrap = document.getElementById('emoji-grid-wrap');
@@ -3203,6 +3605,11 @@
         _emojiOpen = false;
         const p = document.getElementById('emoji-picker');
         if (p) p.classList.remove('open');
+      }
+      if (_attachOpen && !e.target.closest('.attach-menu-wrap')) {
+        _attachOpen = false;
+        const a = document.getElementById('attach-menu');
+        if (a) a.classList.remove('open');
       }
     });
 
@@ -3494,13 +3901,36 @@
     // Override renderConvList to show sections
     (function() {
       renderConvList = function() {
-        const pinned = CONV_DATA.filter(c => c.pinned);
-        const dms    = CONV_DATA.filter(c => c.type === 'dm' && !c.pinned);
-        const groups = CONV_DATA.filter(c => c.type === 'group' && !c.pinned);
-        const vouchers = CONV_DATA.filter(c => c.type === 'voucher' && !c.pinned);
-        const bots   = CONV_DATA.filter(c => c.type === 'bot' && !c.pinned);
         const list = document.getElementById('lp-conv-list');
+
+        // ===== SCOPE: Chung tu nay =====
+        // Chi hien hoi thoai thuoc chung tu entryDoc (mot chung tu co the nhieu hoi thoai)
+        if (scopeMode === 'doc' && entryDoc) {
+          const inDoc = CONV_DATA.filter(c => c.docNo === entryDoc.no);
+          let h = `<div class="lp-section-label">Hoi thoai cua chung tu</div>`;
+          h += inDoc.length
+            ? inDoc.map(c => convItemHtml(c)).join('')
+            : `<div style="padding:18px 12px;text-align:center;color:#94A3B8;font-size:12.5px;line-height:1.5;">Chua co hoi thoai nao cho chung tu nay.<br>Bam + de bat dau trao doi.</div>`;
+          list.innerHTML = h;
+          return;
+        }
+
+        // ===== SCOPE: Tat ca =====
+        const pinned = CONV_DATA.filter(c => c.pinned);
+        const dms    = CONV_DATA.filter(c => c.type === 'dm' && !c.docNo && !c.pinned);
+        const groups = CONV_DATA.filter(c => c.type === 'group' && !c.docNo && !c.pinned);
+        const docAll = CONV_DATA.filter(c => c.docNo && !c.pinned && !(entryDoc && c.docNo === entryDoc.no));
+        const bots   = CONV_DATA.filter(c => c.type === 'bot' && !c.pinned);
         let html = '';
+
+        // "Dang xem": ghim hoi thoai cua chung tu vua mo len dau (khi vao tu chung tu)
+        if (entryDoc) {
+          const viewing = CONV_DATA.filter(c => c.docNo === entryDoc.no);
+          if (viewing.length) {
+            html += `<div class="lp-viewing-label"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/></svg>Dang xem: ${escapeHtml(entryDoc.no)}</div>`;
+            html += viewing.map(c => convItemHtml(c)).join('');
+          }
+        }
         if (pinned.length) {
           html += `<div class="lp-section-label">Ghim<button title="Xem tat ca"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></button></div>`;
           html += pinned.map(c => convItemHtml(c)).join('');
@@ -3513,9 +3943,9 @@
           html += `<div class="lp-section-label">Nhom<button title="Tao nhom" onclick="lpOpenGroup()"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button></div>`;
           html += groups.map(c => convItemHtml(c)).join('');
         }
-        if (vouchers.length) {
+        if (docAll.length) {
           html += `<div class="lp-section-label">Chung tu ERP</div>`;
-          html += vouchers.map(c => convItemHtml(c)).join('');
+          html += docAll.map(c => convItemHtml(c)).join('');
         }
         if (bots.length) {
           html += `<div class="lp-section-label">Thong bao & Bot</div>`;
@@ -3558,6 +3988,11 @@
 
     // Re-render conv list now that sectioned version is active
     renderConvList();
+
+    // ===== INIT unified modal: modal mo san khi load (cua vao = header / Tat ca) =====
+    updateScopeUI();
+    updateGlobalBadge();
+    document.getElementById('demo-sim').classList.add('on');
 
   </script>
   <div id="conv-menu" class="conv-menu"></div>

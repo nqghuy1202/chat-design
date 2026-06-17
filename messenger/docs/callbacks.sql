@@ -5,7 +5,11 @@
 --
 -- Danh sách callbacks:
 --   1. msGetCurrentUser   — thông tin user đang login
---   2. msConvListHtml     — danh sách hội thoại (HTML)
+--   2. msConvListHtml     — danh sách hội thoại (HTML). Hỗ trợ scope theo
+--      chứng từ (x03/x04/x05/x06) cho modal hợp nhất — xem chi tiết tại
+--      block callback bên dưới. Tổng unread cho badge/segmented đi qua
+--      Node.js GET /api/chat/unread-summary/:aus_id (nodeGet trong JS),
+--      không qua callback APEX riêng.
 --   3. msConvHeaderJson   — header info của conv được chọn (JSON)
 --   4. msMsgThreadHtml    — thread tin nhắn (HTML)
 --   5. msSendMsg          — gửi tin nhắn → relay Node.js
@@ -61,13 +65,24 @@ END;
 
 -- ============================================================
 -- 2. msConvListHtml
---    Trả HTML danh sách hội thoại của user (không filter theo doc).
+--    Trả HTML danh sách hội thoại của user.
 --    x01=filter (ALL/UNREAD/GROUP) | x02=search text
+--    x03=scope (DOC/ALL) | x04=doc_type | x05=doc_no
+--      - scope=DOC: CHỈ hiện hội thoại có doc_type=x04 AND doc_no=x05
+--        (1 chứng từ có thể có NHIỀU hội thoại — DM lẫn nhóm)
+--      - scope=ALL (mặc định): hiện mọi hội thoại như cũ
+--    x06='1': khi scope=ALL và có entryDoc (modal mở từ 1 chứng từ) — thêm
+--      section "Đang xem" ghim hội thoại của chứng từ đó lên đầu danh sách
+--      (dùng x04/x05 làm chứng từ "đang xem"). '0' hoặc trống = bỏ qua.
 -- ============================================================
 DECLARE
   l_aus_id        NUMBER;
   l_filter        VARCHAR2(20)  := NVL(UPPER(TRIM(apex_application.g_x01)), 'ALL');
   l_search        VARCHAR2(200) := LOWER(TRIM(apex_application.g_x02));
+  l_scope         VARCHAR2(10)  := NVL(UPPER(TRIM(apex_application.g_x03)), 'ALL');
+  l_doc_type      VARCHAR2(30)  := NULLIF(TRIM(apex_application.g_x04), '');
+  l_doc_no        VARCHAR2(60)  := NULLIF(TRIM(apex_application.g_x05), '');
+  l_viewing_flag  VARCHAR2(1)   := NVL(apex_application.g_x06, '0');
   l_online_cutoff TIMESTAMP     := SYSTIMESTAMP - INTERVAL '35' SECOND;
   l_last_type     VARCHAR2(20)  := '~~INIT~~';
 BEGIN
@@ -88,12 +103,20 @@ BEGIN
       SELECT /*+ MATERIALIZE */
         c.conv_id,
         c.conv_type,
+        c.doc_type,
+        c.doc_no,
         c.last_msg_date,
         c.last_msg_preview,
         p.last_read_msg_id,
-        -- Display name
-        CASE c.conv_type
-          WHEN 'CHANNEL' THEN NVL(c.name,'(Không tên)')
+        CASE WHEN l_viewing_flag = '1' AND c.doc_type = l_doc_type AND c.doc_no = l_doc_no
+             THEN 1 ELSE 0 END AS is_viewing,
+        -- Số thành viên — dùng để phân biệt DOC 1-1 (như DM) vs DOC nhóm (như CHANNEL)
+        (SELECT COUNT(*) FROM CHAT_PARTICIPANTS p3 WHERE p3.conv_id = c.conv_id) AS member_count,
+        -- Display name: CHANNEL hoặc DOC nhóm (>2 người) dùng name, còn lại dùng tên người kia
+        CASE
+          WHEN c.conv_type = 'CHANNEL' THEN NVL(c.name,'(Không tên)')
+          WHEN c.conv_type = 'DOC' AND (SELECT COUNT(*) FROM CHAT_PARTICIPANTS p3 WHERE p3.conv_id = c.conv_id) > 2
+            THEN NVL(c.name,'(Không tên)')
           ELSE (
             SELECT REGEXP_REPLACE(NVL(e2.full_name,'Unknown'),'[[:cntrl:]]','')
             FROM   CHAT_PARTICIPANTS p2
@@ -103,18 +126,31 @@ BEGIN
             FETCH FIRST 1 ROW ONLY
           )
         END AS display_name,
-        -- Partner aus_id (DM only)
-        CASE c.conv_type
-          WHEN 'DM' THEN (
+        -- Partner aus_id (DM, hoặc DOC 1-1)
+        CASE
+          WHEN c.conv_type = 'DM' THEN (
+            SELECT p2.aus_id FROM CHAT_PARTICIPANTS p2
+            WHERE  p2.conv_id = c.conv_id AND p2.aus_id != l_aus_id
+            FETCH FIRST 1 ROW ONLY
+          )
+          WHEN c.conv_type = 'DOC' AND (SELECT COUNT(*) FROM CHAT_PARTICIPANTS p3 WHERE p3.conv_id = c.conv_id) <= 2 THEN (
             SELECT p2.aus_id FROM CHAT_PARTICIPANTS p2
             WHERE  p2.conv_id = c.conv_id AND p2.aus_id != l_aus_id
             FETCH FIRST 1 ROW ONLY
           )
           ELSE NULL
         END AS partner_aus_id,
-        -- Partner avatar image (DM only) — scalar subquery tránh ORA-01799
-        CASE c.conv_type
-          WHEN 'DM' THEN (
+        -- Partner avatar image (DM, hoặc DOC 1-1) — scalar subquery tránh ORA-01799
+        CASE
+          WHEN c.conv_type = 'DM' THEN (
+            SELECT vf2.v_file_name
+            FROM   CHAT_PARTICIPANTS p2
+            JOIN   APP_USERS u2 ON u2.aus_id = p2.aus_id
+            JOIN   v_employees_v6 vf2 ON vf2.emp_id = u2.emp_id
+            WHERE  p2.conv_id = c.conv_id AND p2.aus_id != l_aus_id
+            FETCH FIRST 1 ROW ONLY
+          )
+          WHEN c.conv_type = 'DOC' AND (SELECT COUNT(*) FROM CHAT_PARTICIPANTS p3 WHERE p3.conv_id = c.conv_id) <= 2 THEN (
             SELECT vf2.v_file_name
             FROM   CHAT_PARTICIPANTS p2
             JOIN   APP_USERS u2 ON u2.aus_id = p2.aus_id
@@ -138,6 +174,8 @@ BEGIN
       FROM CHAT_CONVERSATIONS c
       JOIN CHAT_PARTICIPANTS  p ON p.conv_id = c.conv_id AND p.aus_id = l_aus_id
       WHERE NVL(p.is_hidden, 0) = 0
+        -- Scope=DOC: chỉ hội thoại của ĐÚNG chứng từ đang xem (1 chứng từ có thể nhiều hội thoại)
+        AND (l_scope != 'DOC' OR (c.doc_type = l_doc_type AND c.doc_no = l_doc_no))
         AND (l_filter != 'UNREAD' OR
              (SELECT COUNT(*) FROM CHAT_MESSENGERS m
               WHERE m.conv_id = c.conv_id AND m.delete_date IS NULL
@@ -159,27 +197,34 @@ BEGIN
            CASE WHEN o.last_seen >= l_online_cutoff THEN 'online' ELSE 'offline' END AS presence
     FROM   conv_raw r
     LEFT JOIN CHAT_USER_ONLINE o ON o.aus_id = r.partner_aus_id
-    ORDER  BY r.is_pinned DESC, r.last_msg_date DESC NULLS LAST
+    ORDER  BY r.is_viewing DESC, r.is_pinned DESC, r.last_msg_date DESC NULLS LAST
   ) LOOP
     DECLARE
       l_name    VARCHAR2(200) := REGEXP_REPLACE(NVL(conv.display_name,'?'),'[[:cntrl:]]','');
       l_initl   VARCHAR2(4)   := UPPER(SUBSTR(REGEXP_SUBSTR(l_name,'\S+$'),1,1));
       l_hue     VARCHAR2(10)  := TO_CHAR(MOD(NVL(conv.partner_aus_id, conv.conv_id)*47, 360));
       l_unread  BOOLEAN       := conv.unread_count > 0;
+      l_is_group BOOLEAN      := conv.conv_type = 'CHANNEL'
+                                  OR (conv.conv_type = 'DOC' AND conv.member_count > 2);
       l_cls     VARCHAR2(200);
     BEGIN
       IF NVL(l_initl,'') = '' THEN l_initl := '?'; END IF;
 
-      -- Section label (Ghim đứng trước, sau đó DM / Nhóm)
+      -- Section label ("Đang xem" đứng trước nếu có, rồi Ghim, sau đó DM / Nhóm / Theo chứng từ)
       DECLARE
-        l_sect VARCHAR2(20) := CASE WHEN conv.is_pinned = 1 THEN 'PIN' ELSE conv.conv_type END;
+        l_sect VARCHAR2(20) := CASE WHEN conv.is_viewing = 1 THEN 'VIEWING'
+                                     WHEN conv.is_pinned  = 1 THEN 'PIN'
+                                     ELSE conv.conv_type END;
       BEGIN
         IF l_sect != l_last_type THEN
           l_last_type := l_sect;
-          HTP.p('<div class="ms-section-label">'
+          HTP.p('<div class="ms-section-label'
+                || CASE WHEN l_sect = 'VIEWING' THEN ' ms-viewing-label' END || '">'
                 || CASE l_sect
-                     WHEN 'PIN' THEN 'Ghim'
-                     WHEN 'DM'  THEN 'Tin nhắn trực tiếp'
+                     WHEN 'VIEWING' THEN 'Đang xem: ' || HTF.ESCAPE_SC(l_doc_no)
+                     WHEN 'PIN'     THEN 'Ghim'
+                     WHEN 'DM'      THEN 'Tin nhắn trực tiếp'
+                     WHEN 'DOC'     THEN 'Theo chứng từ'
                      ELSE 'Nhóm'
                    END
                 || '</div>');
@@ -188,8 +233,8 @@ BEGIN
 
       -- Conv item classes
       l_cls := 'ms-conv-item'
-             || CASE WHEN l_unread          THEN ' unread' END
-             || CASE WHEN conv.conv_type = 'CHANNEL' THEN ' group' END;
+             || CASE WHEN l_unread  THEN ' unread' END
+             || CASE WHEN l_is_group THEN ' group' END;
 
       HTP.p('<button type="button" class="' || l_cls || '"'
             || ' data-conv-id="'    || conv.conv_id   || '"'
@@ -199,9 +244,9 @@ BEGIN
             || ',''' || conv.conv_type || ''')">');
 
       -- Avatar
-      HTP.p('  <div class="ms-ci-av' || CASE WHEN conv.conv_type='CHANNEL' THEN ' group' END || '"'
+      HTP.p('  <div class="ms-ci-av' || CASE WHEN l_is_group THEN ' group' END || '"'
             || ' style="background:hsl(' || l_hue || ',55%,52%)">');
-      IF conv.conv_type = 'CHANNEL' THEN
+      IF l_is_group THEN
         HTP.p('<i class="fa fa-users" style="font-size:16px"></i>');
       ELSE
         IF conv.partner_img IS NOT NULL THEN
@@ -220,6 +265,9 @@ BEGIN
       HTP.p('      <span class="ms-ci-name">' || HTF.ESCAPE_SC(l_name) || '</span>');
       HTP.p('      <span class="ms-ci-time">' || NVL(conv.display_time,'') || '</span>');
       HTP.p('    </div>');
+      IF conv.conv_type = 'DOC' THEN
+        HTP.p('    <div class="ms-ci-docbadge">' || HTF.ESCAPE_SC(NVL(conv.doc_no,'')) || '</div>');
+      END IF;
       HTP.p('    <div class="ms-ci-row2">');
       HTP.p('      <span class="ms-ci-preview">'
             || HTF.ESCAPE_SC(SUBSTR(NVL(conv.last_msg_preview,''),1,55)) || '</span>');
@@ -272,9 +320,12 @@ BEGIN
   EXCEPTION WHEN NO_DATA_FOUND THEN HTP.p('{"error":"user_not_found"}'); RETURN;
   END;
 
+  SELECT COUNT(*) INTO l_member_count FROM CHAT_PARTICIPANTS WHERE conv_id = l_conv_id;
+
   SELECT c.conv_type,
-         CASE c.conv_type
-           WHEN 'CHANNEL' THEN NVL(c.name,'(Không tên)')
+         CASE
+           WHEN c.conv_type = 'CHANNEL' THEN NVL(c.name,'(Không tên)')
+           WHEN c.conv_type = 'DOC' AND l_member_count > 2 THEN NVL(c.name,'(Không tên)')
            ELSE (SELECT REGEXP_REPLACE(NVL(e2.full_name,'Unknown'),'[[:cntrl:]]','')
                  FROM CHAT_PARTICIPANTS p2
                  JOIN APP_USERS u2 ON u2.aus_id = p2.aus_id
@@ -285,9 +336,7 @@ BEGIN
   INTO l_type, l_name
   FROM CHAT_CONVERSATIONS c WHERE c.conv_id = l_conv_id;
 
-  SELECT COUNT(*) INTO l_member_count FROM CHAT_PARTICIPANTS WHERE conv_id = l_conv_id;
-
-  IF l_type = 'DM' THEN
+  IF l_type = 'DM' OR (l_type = 'DOC' AND l_member_count <= 2) THEN
     DECLARE l_partner_id NUMBER; l_partner_emp NUMBER;
     BEGIN
       SELECT p2.aus_id INTO l_partner_id FROM CHAT_PARTICIPANTS p2
@@ -695,8 +744,8 @@ BEGIN
 
   SELECT COUNT(*) INTO l_member_count FROM CHAT_PARTICIPANTS WHERE conv_id = l_conv_id;
 
-  -- ── DM: Profile Card ─────────────────────────────────────────
-  IF l_conv_type = 'DM' THEN
+  -- ── DM (hoặc DOC 1-1): Profile Card ───────────────────────────
+  IF l_conv_type = 'DM' OR (l_conv_type = 'DOC' AND l_member_count <= 2) THEN
     BEGIN
       -- MATERIALIZE tách remote columns ra trước, tránh ORA-00904 khi CASE WHEN bị push sang DB link
       WITH partner_base AS (
@@ -908,7 +957,7 @@ BEGIN
 
     HTP.p('</div>');
 
-  -- ── CHANNEL: Group Header + Member List ──────────────────────
+  -- ── CHANNEL (hoặc DOC nhóm >2): Group Header + Member List ────
   ELSE
     DECLARE
       l_grp_initl VARCHAR2(4) := UPPER(SUBSTR(NVL(l_conv_name,'?'),1,1));
@@ -1217,17 +1266,22 @@ END;
 
 
 -- ============================================================
--- 10b. msFindDM  (chống trùng DM — gọi TRƯỚC khi tạo qua Node)
+-- 10b. msFindDM  (chống trùng DM/DOC 1-1 — gọi TRƯỚC khi tạo qua Node)
 --     x01 = aus_id của đối phương.
---     Tìm DM cũ giữa current user và đối phương (doc_type/doc_no NULL).
+--     x02 = doc_type | x03 = doc_no (optional — chỉ truyền khi tạo từ trang chứng từ)
+--     - x02/x03 trống: tìm DM chung cũ (doc_type/doc_no NULL) — hành vi gốc.
+--     - x02/x03 có giá trị: tìm hội thoại DOC 1-1 cũ ĐÚNG chứng từ này với đối phương.
 --     - Tìm thấy: bỏ ẩn (is_hidden=0) hoặc rejoin nếu đã rời, trả {found:true, conv_id}.
 --     - Không thấy: trả {found:false} → frontend gọi Node /create (giữ real-time).
---     Lý do tồn tại: create DM đi qua Node (ngoài repo) vốn KHÔNG dedup, gây
---     tạo nhiều DM trùng. Pre-check này đưa dedup về phía APEX (trong tầm kiểm soát).
+--     Lý do tồn tại: create đi qua Node (ngoài repo) vốn KHÔNG dedup, gây
+--     tạo nhiều hội thoại trùng. Pre-check này đưa dedup về phía APEX (trong tầm kiểm soát).
 -- ============================================================
 DECLARE
   l_aus_id     NUMBER;
   l_partner_id NUMBER := TO_NUMBER(NVL(TRIM(apex_application.g_x01),'0'));
+  l_doc_type   VARCHAR2(30) := NULLIF(TRIM(apex_application.g_x02), '');
+  l_doc_no     VARCHAR2(60) := NULLIF(TRIM(apex_application.g_x03), '');
+  l_conv_type  VARCHAR2(10) := CASE WHEN l_doc_type IS NOT NULL AND l_doc_no IS NOT NULL THEN 'DOC' ELSE 'DM' END;
   l_found      NUMBER;
 BEGIN
   OWA_UTIL.MIME_HEADER('application/json', TRUE, 'UTF-8');
@@ -1245,15 +1299,16 @@ BEGIN
     HTP.p('{"found":false}'); RETURN;
   END IF;
 
-  -- (1) DM mà cả hai còn là participant (bao gồm cả khi mình đã Ẩn — is_hidden=1)
+  -- (1) Hội thoại mà cả hai còn là participant (bao gồm cả khi mình đã Ẩn — is_hidden=1)
   BEGIN
     SELECT c.conv_id INTO l_found
     FROM   CHAT_CONVERSATIONS c
     JOIN   CHAT_PARTICIPANTS p1 ON p1.conv_id = c.conv_id AND p1.aus_id = l_aus_id
     JOIN   CHAT_PARTICIPANTS p2 ON p2.conv_id = c.conv_id AND p2.aus_id = l_partner_id
-    WHERE  c.conv_type = 'DM'
-      AND  c.doc_type IS NULL
-      AND  c.doc_no   IS NULL
+    WHERE  c.conv_type = l_conv_type
+      AND  ((l_doc_type IS NULL AND c.doc_type IS NULL) OR c.doc_type = l_doc_type)
+      AND  ((l_doc_no   IS NULL AND c.doc_no   IS NULL) OR c.doc_no   = l_doc_no)
+      AND  (SELECT COUNT(*) FROM CHAT_PARTICIPANTS p3 WHERE p3.conv_id = c.conv_id) = 2
     ORDER  BY c.conv_id ASC
     FETCH FIRST 1 ROW ONLY;
   EXCEPTION WHEN NO_DATA_FOUND THEN
@@ -1266,9 +1321,9 @@ BEGIN
       SELECT c.conv_id INTO l_found
       FROM   CHAT_CONVERSATIONS c
       JOIN   CHAT_PARTICIPANTS p2 ON p2.conv_id = c.conv_id AND p2.aus_id = l_partner_id
-      WHERE  c.conv_type = 'DM'
-        AND  c.doc_type IS NULL
-        AND  c.doc_no   IS NULL
+      WHERE  c.conv_type = l_conv_type
+        AND  ((l_doc_type IS NULL AND c.doc_type IS NULL) OR c.doc_type = l_doc_type)
+        AND  ((l_doc_no   IS NULL AND c.doc_no   IS NULL) OR c.doc_no   = l_doc_no)
         AND  c.aus_id   = l_aus_id
       ORDER  BY c.conv_id ASC
       FETCH FIRST 1 ROW ONLY;
@@ -1345,6 +1400,25 @@ END;
 --
 --   Lưu ý: msConvListHtml đã filter NVL(p.is_hidden,0)=0 và
 --   ORDER BY is_pinned DESC, section "Ghim" đứng trước.
+
+
+-- ============================================================
+-- SCHEMA — conv_type thêm giá trị 'DOC' (hội thoại theo chứng từ)
+-- ============================================================
+--   Trước khi deploy: kiểm tra CHAT_CONVERSATIONS.CONV_TYPE có CHECK
+--   constraint giới hạn IN ('DM','CHANNEL') hay không:
+--
+--   SELECT constraint_name, search_condition
+--   FROM   user_constraints
+--   WHERE  table_name = 'CHAT_CONVERSATIONS' AND constraint_type = 'C';
+--
+--   Nếu có, nới constraint (đổi <constraint_name> theo kết quả query trên):
+--
+--   ALTER TABLE CHAT_CONVERSATIONS DROP CONSTRAINT <constraint_name>;
+--   ALTER TABLE CHAT_CONVERSATIONS ADD CONSTRAINT <constraint_name>
+--     CHECK (conv_type IN ('DM','CHANNEL','DOC'));
+--
+--   Không cần thêm cột mới — doc_type/doc_no đã tồn tại sẵn trên bảng này.
 
 
 -- ============================================================
@@ -1581,8 +1655,11 @@ BEGIN
 
   FOR c IN (
     SELECT c.conv_id, c.conv_type,
-           CASE c.conv_type
-             WHEN 'CHANNEL' THEN NVL(c.name,'(Không tên)')
+           (SELECT COUNT(*) FROM CHAT_PARTICIPANTS p3 WHERE p3.conv_id = c.conv_id) AS member_count,
+           CASE
+             WHEN c.conv_type = 'CHANNEL' THEN NVL(c.name,'(Không tên)')
+             WHEN c.conv_type = 'DOC' AND (SELECT COUNT(*) FROM CHAT_PARTICIPANTS p3 WHERE p3.conv_id = c.conv_id) > 2
+               THEN NVL(c.name,'(Không tên)')
              ELSE (
                SELECT REGEXP_REPLACE(NVL(e2.full_name,'Unknown'),'[[:cntrl:]]','')
                FROM   CHAT_PARTICIPANTS p2
@@ -1599,15 +1676,16 @@ BEGIN
   ) LOOP
     IF l_search IS NULL OR LOWER(NVL(c.display_name,'')) LIKE '%'||l_search||'%' THEN
       DECLARE
-        l_initl VARCHAR2(4)  := UPPER(SUBSTR(REGEXP_SUBSTR(c.display_name,'\S+$'),1,1));
-        l_hue   VARCHAR2(10) := TO_CHAR(MOD(c.conv_id*47, 360));
+        l_initl    VARCHAR2(4)  := UPPER(SUBSTR(REGEXP_SUBSTR(c.display_name,'\S+$'),1,1));
+        l_hue      VARCHAR2(10) := TO_CHAR(MOD(c.conv_id*47, 360));
+        l_is_group BOOLEAN      := c.conv_type = 'CHANNEL' OR (c.conv_type = 'DOC' AND c.member_count > 2);
       BEGIN
         HTP.p('<div class="ms-fwd-item" data-conv-id="' || c.conv_id || '"'
               || ' data-conv-name="' || HTF.ESCAPE_SC(c.display_name) || '"'
               || ' onclick="msSelectForward(this)">');
-        HTP.p('  <div class="ms-fwd-av' || CASE WHEN c.conv_type='CHANNEL' THEN ' group' END
+        HTP.p('  <div class="ms-fwd-av' || CASE WHEN l_is_group THEN ' group' END
               || '" style="background:hsl(' || l_hue || ',55%,52%)">'
-              || CASE WHEN c.conv_type='CHANNEL' THEN '<i class="fa fa-users"></i>'
+              || CASE WHEN l_is_group THEN '<i class="fa fa-users"></i>'
                       ELSE NVL(l_initl,'?') END || '</div>');
         HTP.p('  <div style="flex:1;min-width:0"><div class="ms-fwd-name">'
               || HTF.ESCAPE_SC(c.display_name) || '</div></div>');

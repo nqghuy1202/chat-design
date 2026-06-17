@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A **UI design prototyping workspace** for a Zalo-style fullscreen modal chat interface embedded in a multi-module ERP system (accounting, HR, production, management). B2B SaaS product. The primary deliverable is `index.html` — a self-contained, browser-runnable demo. The eventual production target is React + Tailwind CSS.
 
+Two production APEX modules exist alongside the prototypes — see **APEX Production Modules** below. `messenger/` is now the **single** production chat modal (doc-chat deprecated); architecture/UX decisions for its unified entry + cross-doc awareness are in `docs/unified-chat-architecture.md`. The `DOC` conv_type (hội thoại theo chứng từ) is detailed in `messenger/CLAUDE.md` under "conv_type = 'DOC'".
+
 ## Viewing the Demo
 
 ```powershell
@@ -283,26 +285,36 @@ Hai module đã được triển khai thực tế trên Oracle APEX 24.2. Mỗi 
     callbacks.sql     ← PL/SQL Ajax Callbacks tạo trên APEX page
 ```
 
-### doc-chat/ — Modal chat gắn với chứng từ ERP
+### doc-chat/ — DEPRECATED, không còn dùng song song
 
-- **Page ID:** `10022710201` (APEX Modal Dialog, hardcode trong mọi `apex.server.process`)
-- **Mở từ:** ERP page qua `apex.navigation.dialog()` + `sessionStorage.setItem('docChatCtx', ...)`
-- **Conv scope:** filter theo `doc_type + doc_no` — chỉ hiện hội thoại liên quan đến chứng từ đó
-- **Cross-frame trap:** chạy trong iframe → bind event vào `window.parent.apex.jQuery(window.parent.document)`, không phải `$(document)`
-- **Real-time:** SSE → Node.js `http://172.25.10.38:3410` → relay qua `apex:chatEvent` custom event
-- **CSS scope:** `#doc-chat-root`
-- Chi tiết đầy đủ: `doc-chat/CLAUDE.md` + `doc-chat/docs/`
+`doc-chat/` là bản CŨ, đã bị thay thế hoàn toàn bởi `messenger/`. Page APEX `10022710201` (vốn của doc-chat) giờ **được tái sử dụng cho chính messenger** — không phải 2 page riêng. Đừng đề xuất khôi phục/sửa song song doc-chat; mọi modal chat trong hệ thống giờ là **một mình messenger**, chỉ khác tham số khởi tạo (xem mục Unified Modal Entry bên dưới). Code/docs trong `doc-chat/` giữ lại để tham khảo lịch sử (cross-frame trap, MATERIALIZE pattern, UTL_HTTP pitfalls vẫn đúng và áp dụng chung).
 
-### messenger/ — Fullscreen messenger (toàn hệ thống)
+### messenger/ — Modal chat duy nhất (toàn hệ thống + scoped theo chứng từ)
 
-- **Page type:** APEX Blank Page (Normal, không phải Modal)
-- **Conv scope:** tất cả hội thoại của user — không filter doc. `msCreateConv` để `doc_type/doc_no = NULL`
-- **DM dedup:** create DM đi qua Node `/create` (ngoài repo) vốn KHÔNG dedup → gây tạo DM trùng. Fix: frontend `msCreateDM` gọi callback `msFindDM` TRƯỚC; tìm thấy DM cũ (`doc_type/doc_no IS NULL`) thì mở lại (tự bỏ ẩn / rejoin), chỉ gọi Node `/create` khi thực sự chưa có. `msCreateConv` (APEX) vẫn giữ dedup nội bộ nhưng không còn là đường tạo chính.
-- **Real-time:** cùng Node.js relay, long-poll qua `msChatEvents` callback
+- **Page ID:** `10022710201` (cùng page từng thuộc doc-chat, APEX Modal Dialog — KHÔNG phải Blank Page)
+- **3 conv_type:** `DM` (1-1 chung), `CHANNEL` (nhóm chung), `DOC` (tạo từ nút "Trao đổi" ở trang chứng từ — 1-1 hoặc nhóm, bắt buộc `doc_type/doc_no`). DOC dedup theo đúng `conv_type` + đúng chứng từ + đúng đối phương — khác chứng từ hoặc khác conv_type (vd DM chung đã có với A) đều tạo hội thoại DOC riêng. Vì DOC có thể nhóm, mọi nơi hiển thị dùng `is_group = conv_type='CHANNEL' OR (conv_type='DOC' AND member_count>2)` thay vì so trực tiếp `'CHANNEL'`.
+- **Conv scope:** mặc định tất cả hội thoại của user; có thể scope theo `doc_type+doc_no` qua Unified Modal Entry (xem dưới). `msCreateConv` để `doc_type/doc_no = NULL` cho hội thoại chung.
+- **DM/DOC dedup:** create đi qua Node `/create` vốn KHÔNG dedup → gây tạo trùng. Fix: frontend `msCreateDM` gọi callback `msFindDM` TRƯỚC (nhận thêm `x02=doc_type, x03=doc_no` khi tạo DOC); tìm thấy hội thoại cũ thì mở lại (tự bỏ ẩn / rejoin), chỉ gọi Node `/create` khi thực sự chưa có. `msCreateConv` (APEX) vẫn giữ dedup nội bộ nhưng không còn là đường tạo chính, chỉ hỗ trợ DM/CHANNEL.
+- **Real-time:** SSE qua Node.js chat-server (xem mục Chat Server bên dưới) → relay qua `apex:chatEvent` custom event. **Cross-frame trap:** chạy trong iframe → bind event vào `window.parent.apex.jQuery(window.parent.document)`, không phải `$(document)`.
 - **CSS scope:** `#ms-root`. `height: calc(100vh - 42px)` — điều chỉnh nếu APEX nav cao hơn/thấp hơn 42px
 - **JS scope:** IIFE trong `messenger.fgvd.js`, expose `window.ms*` cho onclick handlers trong PL/SQL HTML
 - **New conversation flow:** LP slider inline hợp nhất (S1→S2, mô hình Messenger), KHÔNG dùng overlay dialog. Xem bên dưới.
 - Chi tiết đầy đủ: `messenger/CLAUDE.md` + `messenger/docs/callbacks.sql`
+
+#### messenger/ Unified Modal Entry — 2 cửa vào, 1 page
+
+Một mình messenger phục vụ cả "icon tin nhắn ở header hệ thống" (xem tất cả) lẫn "nút Trao đổi ở trang chứng từ" (scoped 1 chứng từ). Phân biệt hoàn toàn qua `sessionStorage['msEntryDoc']` set TRƯỚC khi gọi `apex.navigation.dialog()` — page ID, callback, mọi thứ khác giữ nguyên:
+
+| Cửa vào | `sessionStorage['msEntryDoc']` | `scopeMode` đọc trong `initEntryDoc()` |
+|---|---|---|
+| Icon header hệ thống | `removeItem` (hoặc không set) trước khi mở | `'ALL'` |
+| Nút "Trao đổi" ở chứng từ | `setItem(JSON.stringify({doc_type,doc_no,doc_label}))` trước khi mở | `'DOC'` |
+
+**1 chứng từ có thể có NHIỀU hội thoại** (DM + nhóm cùng `doc_type+doc_no`) — scope DOC lọc cả tập đó, không phải 1 item. Segmented control "Chứng từ này / Tất cả" (`#ms-scope-box`, `msSetScope()`) chuyển qua lại; khi xem "Tất cả" mà có entryDoc, section "Đang xem" ghim hội thoại của chứng từ đó lên đầu danh sách.
+
+**Cross-doc awareness:** đang scope DOC mà có tin nhắn tới hội thoại NGOÀI chứng từ đang xem → banner `#ms-crossdoc-banner` hiện "Tin mới ở chứng từ X → Xem". Dựa vào event `message` đã được **server enrich** thêm `doc_type/doc_no/conv_type/conv_name` (xem mục Chat Server) — frontend không lookup thêm. Badge số lượng theo chứng từ (`#ms-seg-doc-count`) lấy từ Node `GET /api/chat/unread-summary/:aus_id`.
+
+Chi tiết kiến trúc + code mẫu mở dialog: `messenger/CLAUDE.md` mục "Modal hợp nhất: 2 cửa vào + Cross-doc Awareness" và `docs/unified-chat-architecture.md`.
 
 #### messenger/ Left Panel Slider — mô hình Messenger hợp nhất
 
@@ -340,9 +352,22 @@ Nút 3-chấm trên `.ms-conv-item` (render là `<div role="button">` để trá
 
 **Append-only thread refresh:** `loadThread()` = full load (chuyển hội thoại); `refreshThread()` = chỉ append tin mới (diff theo `data-msg-id`) + animate `.ms-msg-enter`, giữ scroll nếu user đọc lên trên. Gửi/nhận real-time gọi `refreshThread`, KHÔNG vẽ lại cả thread (tránh flicker). Vì refresh chỉ append, react/pin trên tin cũ cập nhật bằng DOM optimistic, không qua refresh.
 
-**Real-time caveat:** Node server là hạ tầng **ngoài repo** — không thêm được endpoint mới. Forward real-time vì dùng `/send`. React/Pin lưu DB + optimistic, đồng bộ cross-client khi thread refresh; muốn tức thời thì backend Node phải broadcast `{type:'reaction'|'pin', conv_id, msg_id}` (`onChatEvent` đã wire sẵn 2 type này).
+**Real-time:** Node chat-server SỬA ĐƯỢC (xem mục Chat Server bên dưới — nguồn local tại `C:\greensys\chat-server`, không còn "ngoài repo"). Forward real-time vì dùng `/send`. React/Pin lưu DB + optimistic, đồng bộ cross-client khi thread refresh; muốn tức thời thì backend Node phải broadcast `{type:'reaction'|'pin', conv_id, msg_id}` (`onChatEvent` đã wire sẵn 2 type này).
 
-**Callbacks hiện tại (19):** render HTML (`msConvListHtml`, `msMsgThreadHtml`, `msInfoHtml`, `msContactsHtml`, `msPinnedListHtml`, `msForwardListHtml`), JSON/action (`msGetCurrentUser`, `msConvHeaderJson`, `msCreateConv`, `msFindDM`, `msGetAvatar`, `msPinConv`, `msHideConv`, `msDeleteConv`, `msToggleReaction`, `msTogglePinMsg`), deprecated relay (`msSendMsg`, `msMarkRead`). Send/read/typing/create đi qua `nodePost` (fetch thẳng Node). Nguồn chuẩn: `messenger/docs/callbacks.sql`.
+**Callbacks hiện tại (19):** render HTML (`msConvListHtml` — nay có thêm tham số scope x03-x06, xem Unified Modal Entry ở trên — `msMsgThreadHtml`, `msInfoHtml`, `msContactsHtml`, `msPinnedListHtml`, `msForwardListHtml`), JSON/action (`msGetCurrentUser`, `msConvHeaderJson`, `msCreateConv`, `msFindDM`, `msGetAvatar`, `msPinConv`, `msHideConv`, `msDeleteConv`, `msToggleReaction`, `msTogglePinMsg`), deprecated relay (`msSendMsg`, `msMarkRead`). Send/read/typing/create/unread-summary đi qua `nodePost`/`nodeGet` (fetch thẳng Node, không qua callback APEX). Nguồn chuẩn: `messenger/docs/callbacks.sql`.
+
+### Chat Server — Node.js real-time relay (repo riêng, sửa được)
+
+Nguồn tại `C:\greensys\chat-server` (sibling repo, KHÔNG nằm trong `C:\chat-design`), deploy trên Server B `172.25.10.38:3410` qua pm2. Files chính: `server.js` (Express + SSE endpoint), `chat.js` (router `/api/chat/*`), `events.js` (SSE connection map + at-least-once buffer), `cqn.js` (Oracle CQN cho notification bell). Chi tiết đầy đủ: `chat-server/CLAUDE.md` trong repo đó.
+
+**Cơ chế deliver:** 1 kết nối SSE/user keyed theo `aus_id`. `deliverToConv()` đẩy event tới TẤT CẢ thành viên hội thoại bất kể họ đang mở hội thoại/chứng từ nào — đây là nền tảng cho cross-doc awareness của messenger.
+
+**3 patch additive đã áp cho Unified Modal Entry** (`chat.js`):
+- Enrich `message` event payload thêm `doc_type/doc_no/conv_type/conv_name` (POST `/send`).
+- `?scope=all` cho `GET /conversations/:aus_id` (mặc định vẫn giữ `doc_type IS NULL` cho backward-compat).
+- Route mới `GET /unread-summary/:aus_id` → `{total, by_conv, by_doc}`.
+
+Deploy thay đổi: `npm run test:connection` rồi `pm2 restart chat-server` trên Server B. Xem `docs/unified-chat-architecture.md` để biết spec đầy đủ.
 
 ### APEX-specific Rules (áp dụng cho cả hai module)
 

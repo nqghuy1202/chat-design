@@ -29,6 +29,13 @@
   var AUS_ID          = Number((_inIframe ? _parentWin.$v('P0_AUS_ID') : $v('P0_AUS_ID')) || 0);
   var NODE_URL        = (window.CHAT_NODE_URL || _parentWin.CHAT_NODE_URL || 'https://chattest.erp100.vn') + '/api/chat';
 
+  // ── Unified modal: entry mode + scope + cross-doc awareness ──
+  // entryDoc: null = mo tu icon header he thong (xem tat ca);
+  //           {doc_type,doc_no,doc_label} = mo tu nut "Trao doi" o chung tu (sessionStorage 'msEntryDoc')
+  var entryDoc        = null;
+  var scopeMode       = 'ALL';            // 'ALL' | 'DOC'
+  var crossDocQueue   = [];               // [{convId, docNo, name}] tin den ngoai scope hien tai
+
   // ── Helper: gọi AJAX callback ──────────────────────────────
   function apexCall(proc, params, dataType, onSuccess) {
     apex.server.process(proc, params, {
@@ -51,6 +58,14 @@
     .then(function (res) { return res.json(); })
     .then(onSuccess || function () {})
     .catch(onError  || function (err) { console.error('[Messenger] nodePost', path, err); });
+  }
+
+  // ── Helper: gọi thẳng Node.js (GET — unread-summary) ──────
+  function nodeGet(path, onSuccess, onError) {
+    fetch(NODE_URL + path)
+    .then(function (res) { return res.json(); })
+    .then(onSuccess || function () {})
+    .catch(onError  || function (err) { console.error('[Messenger] nodeGet', path, err); });
   }
 
   // ── Helper: skeleton HTML ──────────────────────────────────
@@ -87,14 +102,35 @@
   // INIT
   // ============================================================
   window.msInit = function () {
+    initEntryDoc();
     loadCurrentUser();
     loadConvList();
     bindEvents();
     startEventPoll();
+    refreshUnreadSummary();
 
     // Hiển thị empty state ban đầu
     showEmptyState();
   };
+
+  // ── Đọc context chứng từ (nếu modal được mở từ nút "Trao đổi" ở 1 chứng từ) ──
+  // sessionStorage key 'msEntryDoc' = { doc_type, doc_no, doc_label } do trang chứng từ set
+  // trước khi gọi apex.navigation.dialog(). Trống/không có = mở từ icon header → xem tất cả.
+  function initEntryDoc() {
+    // sessionStorage là per-origin (không per-app) — app 1002/1503 cùng domain:port
+    // nên đọc trực tiếp sessionStorage của trang hiện tại là đủ (giống pattern docChatCtx cũ).
+    var raw = null;
+    try { raw = sessionStorage.getItem('msEntryDoc'); } catch (e) {}
+    if (!raw) { entryDoc = null; scopeMode = 'ALL'; updateScopeUI(); return; }
+    try {
+      var ctx = JSON.parse(raw);
+      if (ctx && ctx.doc_type && ctx.doc_no) {
+        entryDoc  = ctx;
+        scopeMode = 'DOC';
+      }
+    } catch (e) { entryDoc = null; }
+    updateScopeUI();
+  }
 
   // ── Load thông tin user đang đăng nhập ──────────────────────
   function loadCurrentUser() {
@@ -129,16 +165,98 @@
 
     apexCall('msConvListHtml', {
       x01: activeFilter,
-      x02: document.getElementById('ms-conv-search').value.trim()
+      x02: document.getElementById('ms-conv-search').value.trim(),
+      // x03=scope (DOC/ALL), x04=doc_type, x05=doc_no — chi co y nghia khi scope=DOC
+      x03: scopeMode,
+      x04: (scopeMode === 'DOC' && entryDoc) ? entryDoc.doc_type : '',
+      x05: (scopeMode === 'DOC' && entryDoc) ? entryDoc.doc_no   : '',
+      // x06="1" khi can ghim section "Dang xem" len dau (xem Tat ca nhung mo tu 1 chung tu)
+      x06: (scopeMode === 'ALL' && entryDoc) ? '1' : '0'
     }, 'text', function (html) {
       listEl.innerHTML = html || '<div style="padding:32px 16px;text-align:center;color:#94A3B8;font-size:13px">Chưa có hội thoại nào</div>';
     });
   }
 
+  // ============================================================
+  // UNIFIED MODAL: scope segmented + cross-doc awareness
+  // ============================================================
+  function updateScopeUI() {
+    var box = document.getElementById('ms-scope-box');
+    if (!box) return;
+    if (entryDoc) {
+      box.classList.add('on');
+      document.getElementById('ms-scope-doc-text').textContent = entryDoc.doc_no + (entryDoc.doc_label ? ' · ' + entryDoc.doc_label : '');
+      document.getElementById('ms-seg-doc').classList.toggle('active', scopeMode === 'DOC');
+      document.getElementById('ms-seg-all').classList.toggle('active', scopeMode === 'ALL');
+    } else {
+      box.classList.remove('on');
+    }
+  }
+
+  // Chuyen segmented "Chung tu nay" / "Tat ca" (goi tu onclick trong HTML)
+  window.msSetScope = function (mode) {
+    scopeMode = mode;
+    updateScopeUI();
+    loadConvList();
+  };
+
+  // ── Tong hop unread cho seg-count + reconcile banner luc init/reconnect ──
+  function refreshUnreadSummary() {
+    if (!AUS_ID) return;
+    nodeGet('/unread-summary/' + AUS_ID, function (d) {
+      if (!d) return;
+      if (entryDoc) {
+        var byDoc = d.by_doc || [];
+        var n = 0;
+        for (var i = 0; i < byDoc.length; i++) {
+          if (byDoc[i].doc_no === entryDoc.doc_no) { n = byDoc[i].unread; break; }
+        }
+        var cEl = document.getElementById('ms-seg-doc-count');
+        if (cEl) cEl.textContent = n > 0 ? n : '';
+      }
+    });
+  }
+
+  // ── Cross-doc banner: tin moi den o hoi thoai NGOAI scope hien tai ──
+  function pushCrossDoc(convId, docNo, name) {
+    crossDocQueue.push({ convId: convId, docNo: docNo || null, name: name });
+    showCrossDocBanner();
+  }
+  function showCrossDocBanner() {
+    var banner = document.getElementById('ms-crossdoc-banner');
+    if (!banner) return;
+    if (scopeMode !== 'DOC' || !crossDocQueue.length) { banner.classList.remove('on'); return; }
+    var n = crossDocQueue.length;
+    var last = crossDocQueue[crossDocQueue.length - 1];
+    var where = last.docNo ? ('chứng từ <b>' + last.docNo + '</b>') : ('<b>' + (last.name || '') + '</b>');
+    document.getElementById('ms-crossdoc-text').innerHTML =
+      n === 1 ? ('Tin mới ở ' + where) : (n + ' tin mới ở hội thoại khác · mới nhất: ' + where);
+    banner.classList.add('on');
+  }
+  window.msCloseCrossDocBanner = function () {
+    var banner = document.getElementById('ms-crossdoc-banner');
+    if (banner) banner.classList.remove('on');
+  };
+  window.msViewCrossDoc = function () {
+    var last = crossDocQueue[crossDocQueue.length - 1];
+    crossDocQueue = [];
+    msCloseCrossDocBanner();
+    scopeMode = 'ALL';
+    updateScopeUI();
+    loadConvList();
+    if (last) setTimeout(function () { window.msSelectConv(last.convId, null); }, 200);
+  };
+
   // ── Chọn hội thoại (gọi từ PL/SQL onclick) ─────────────────
   window.msSelectConv = function (convId, convType) {
     if (!convId) return;
     activeConvId = convId;
+
+    // Bỏ khỏi hàng đợi cross-doc nếu vừa mở đúng hội thoại đó
+    if (crossDocQueue.length) {
+      crossDocQueue = crossDocQueue.filter(function (q) { return q.convId != convId; });
+      showCrossDocBanner();
+    }
 
     // Mark active item
     document.querySelectorAll('.ms-conv-item').forEach(function (el) {
@@ -180,18 +298,19 @@
 
     apexCall('msConvHeaderJson', { x01: convId }, 'json', function (d) {
       if (!d) return;
-      var hue    = (convId * 47) % 360;
-      var initl  = (d.name || '?').replace(/.*\s/, '').charAt(0).toUpperCase();
+      var hue     = (convId * 47) % 360;
+      var initl   = (d.name || '?').replace(/.*\s/, '').charAt(0).toUpperCase();
+      var isGroup = d.type === 'CHANNEL' || (d.type === 'DOC' && (d.member_count || 0) > 2);
       headerAv.style.background = 'hsl(' + hue + ',55%,52%)';
       headerAv.innerHTML = initl;
-      if (d.type === 'CHANNEL') {
+      if (isGroup) {
         headerAv.classList.add('group');
         headerAv.innerHTML = '<i class="fa fa-users" style="font-size:15px"></i>';
       } else if (d.img) {
         headerAv.innerHTML += '<img src="' + d.img + '" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%" onerror="this.remove()">';
       }
       headerName.textContent = d.name || 'Hội thoại';
-      if (d.type === 'DM') {
+      if (!isGroup) {
         headerSub.textContent = d.online ? 'Đang hoạt động' : 'Không hoạt động';
       } else {
         headerSub.textContent = (d.member_count || 0) + ' thành viên';
@@ -312,6 +431,14 @@
   // ============================================================
   window.msSendMessage = function () {
     if (!activeConvId) return;
+
+    // Co file dang preview (tu paste) -> gui theo luong file+caption, khong gui text rieng
+    var pendingDropzone = document.getElementById('P10022710201_UPLOAD_FILE_DROPZONE');
+    if (pendingDropzone && pendingDropzone.classList.contains('has-files')) {
+      msSendFileMessage();
+      return;
+    }
+
     var inputEl = document.getElementById('ms-chat-input');
     var body    = inputEl.innerText.trim();
     if (!body) return;
@@ -335,6 +462,216 @@
       }
     });
   };
+
+  // ============================================================
+  // INPUT TOOLBAR
+  // ============================================================
+  var _attachMenuOpen = false;
+  window.msToggleAttachMenu = function (e) {
+    e.stopPropagation();
+    _attachMenuOpen = !_attachMenuOpen;
+    var menu = document.getElementById('ms-attach-menu');
+    if (menu) menu.classList.toggle('open', _attachMenuOpen);
+  };
+
+  function msCloseAttachMenu() {
+    _attachMenuOpen = false;
+    var menu = document.getElementById('ms-attach-menu');
+    if (menu) menu.classList.remove('open');
+  }
+
+  // Nguon cua file dang chon trong P10022710201_UPLOAD_FILE:
+  //  'plus'  = bam nut "+" -> gui ngay nhu Zalo, khong qua preview
+  //  'paste' = paste vao o nhap -> hien preview, cho bam Gui
+  var _pendingFileSource = null;
+
+  // Trigger native APEX File Browse item - cung page, khong qua iframe
+  // APEX render item nay thanh dropzone wrapper, phai click vao dropzone chu khong phai input an ben trong
+  window.msTriggerFileUpload = function () {
+    msCloseAttachMenu();
+    _pendingFileSource = 'plus';
+    var dropzone = document.getElementById('P10022710201_UPLOAD_FILE_DROPZONE');
+    if (dropzone) dropzone.click();
+  };
+
+  // ============================================================
+  // FILE PREVIEW BAR
+  // Doc truc tiep thong tin APEX da tu render trong DROPZONE (ten file,
+  // dung luong, mime-type) thay vi tu quan ly File object - dam bao luon
+  // dong bo voi trang thai that cua item, khong can bang DB nao.
+  // ============================================================
+  // Map duoi file -> mau + nhan chu (kieu Zalo/Messenger, khong dung logo brand that)
+  var FILE_TYPE_STYLES = {
+    doc:  { bg: '#EFF6FF', color: '#2563EB', label: 'DOC' },
+    docx: { bg: '#EFF6FF', color: '#2563EB', label: 'DOC' },
+    xls:  { bg: '#ECFDF5', color: '#15803D', label: 'XLS' },
+    xlsx: { bg: '#ECFDF5', color: '#15803D', label: 'XLS' },
+    csv:  { bg: '#ECFDF5', color: '#15803D', label: 'CSV' },
+    ppt:  { bg: '#FFF7ED', color: '#C2410C', label: 'PPT' },
+    pptx: { bg: '#FFF7ED', color: '#C2410C', label: 'PPT' },
+    pdf:  { bg: '#FEF2F2', color: '#DC2626', label: 'PDF' },
+    zip:  { bg: '#FFFBEB', color: '#B45309', label: 'ZIP' },
+    rar:  { bg: '#FFFBEB', color: '#B45309', label: 'RAR' },
+    '7z': { bg: '#FFFBEB', color: '#B45309', label: '7Z' }
+  };
+  var FILE_TYPE_DEFAULT = { bg: '#F1F5F9', color: '#475569', label: null };
+
+  function getFileTypeStyle(fileName) {
+    var ext = (fileName.split('.').pop() || '').toLowerCase();
+    return FILE_TYPE_STYLES[ext] || FILE_TYPE_DEFAULT;
+  }
+
+  // Build 1 chip preview cho 1 dropzone APEX (file hoac image). Tra ve null neu chua co file.
+  function buildFileChip(dropzoneId, inputId, forceImage) {
+    var dropzone = document.getElementById(dropzoneId);
+    if (!dropzone || !dropzone.classList.contains('has-files')) return null;
+
+    var nameEl = dropzone.querySelector('.a-FileDrop-heading');
+    var sizeEl = dropzone.querySelector('.a-FileDrop-description');
+    var iconEl = dropzone.querySelector('.a-FileDrop-icon');
+    var mimeType = iconEl ? (iconEl.getAttribute('data-mime-type') || '') : '';
+
+    var inputEl = document.getElementById(inputId);
+    var rawFile = inputEl && inputEl.files && inputEl.files[0];
+    var fileName = (nameEl && nameEl.textContent) || (rawFile && rawFile.name) || '';
+    var fileSize = sizeEl ? sizeEl.textContent : '';
+    var isImage = forceImage || (mimeType.indexOf('image/') === 0 && !!rawFile);
+
+    var chip = document.createElement('div');
+    chip.className = 'ms-file-chip' + (isImage && rawFile ? ' ms-file-chip--image' : '');
+
+    if (isImage && rawFile) {
+      var img = document.createElement('img');
+      img.className = 'ms-file-chip-thumb';
+      img.src = URL.createObjectURL(rawFile);
+      chip.appendChild(img);
+    } else {
+      var typeStyle = getFileTypeStyle(fileName);
+      var iconWrap = document.createElement('div');
+      iconWrap.className = 'ms-file-chip-icon';
+      iconWrap.style.background = typeStyle.bg;
+      iconWrap.style.color = typeStyle.color;
+      if (typeStyle.label) {
+        iconWrap.classList.add('ms-file-chip-icon--label');
+        iconWrap.textContent = typeStyle.label;
+      } else {
+        iconWrap.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+      }
+      chip.appendChild(iconWrap);
+    }
+
+    if (!(isImage && rawFile)) {
+      var textWrap = document.createElement('div');
+      textWrap.className = 'ms-file-chip-text';
+      var nameSpan = document.createElement('span');
+      nameSpan.className = 'ms-file-chip-name';
+      nameSpan.textContent = fileName;
+      var sizeSpan = document.createElement('span');
+      sizeSpan.className = 'ms-file-chip-size';
+      sizeSpan.textContent = fileSize;
+      textWrap.appendChild(nameSpan);
+      textWrap.appendChild(sizeSpan);
+      chip.appendChild(textWrap);
+    }
+
+    var removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'ms-file-chip-remove';
+    removeBtn.title = 'Bỏ file này';
+    removeBtn.innerHTML = '<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+    removeBtn.onclick = function () {
+      // Bam ho nut Remove that cua APEX item -> tu dong cap nhat lai DOM, observer se sync lai bar
+      var apexRemoveBtn = dropzone.querySelector('.a-FileDrop-remove');
+      if (apexRemoveBtn) apexRemoveBtn.click();
+    };
+    chip.appendChild(removeBtn);
+
+    return chip;
+  }
+
+  // Chi dung cho luong PASTE - luong "+" gui ngay, khong qua preview bar
+  function syncFilePreviewFromDropzone() {
+    var bar = document.getElementById('ms-file-preview-bar');
+    if (!bar) return;
+    bar.innerHTML = '';
+
+    var chip = buildFileChip('P10022710201_UPLOAD_FILE_DROPZONE', 'P10022710201_UPLOAD_FILE_input', false);
+    if (chip) bar.appendChild(chip);
+
+    bar.classList.toggle('has-files', !!chip);
+  }
+
+  // ============================================================
+  // GUI FILE NGAY (luong "+") - 3 buoc:
+  //  1. Tao dong tin nhan truoc (co the kem caption rong) qua Node /send -> lay msg_id
+  //  2. Goi callback APEX upload that cua ban (TODO: doi ten cho dung callback that)
+  //     voi owner_id = msg_id, owner_table_name = 'CHAT_MESSENGERS' -> luu file, tra fil_id
+  //  3. Bao cac client khac qua Node /attach de cap nhat bong bong tin nhan vua gui
+  // ============================================================
+  function msSendFileMessage() {
+    if (!activeConvId) return;
+    var dropzone = document.getElementById('P10022710201_UPLOAD_FILE_DROPZONE');
+    if (!dropzone || !dropzone.classList.contains('has-files')) return;
+
+    var inputEl = document.getElementById('ms-chat-input');
+    var caption = inputEl ? inputEl.innerText.trim() : '';
+    if (inputEl) inputEl.innerHTML = '';
+
+    nodePost('/send', {
+      conv_id: activeConvId,
+      aus_id:  AUS_ID,
+      body:    caption,
+      is_file: true
+    }, function (d) {
+      var msgId = d && d.msg && d.msg.msg_id;
+      if (!msgId) {
+        console.error('[Messenger] Tao tin nhan that bai:', d && d.error);
+        return;
+      }
+
+      // TODO: doi 'msUploadAttachment' thanh dung ten callback upload file ban da co
+      apexCall('msUploadAttachment', { x01: msgId }, 'json', function (r) {
+        if (!r || r.error) {
+          console.error('[Messenger] Upload file that bai:', r && r.error);
+          return;
+        }
+        nodePost('/attach', {
+          conv_id:   activeConvId,
+          msg_id:    msgId,
+          fil_id:    r.fil_id,
+          file_name: r.file_name,
+          mime_type: r.mime_type,
+          file_size: r.file_size
+        });
+        refreshThread(activeConvId);
+        loadConvList();
+      });
+
+      // Don dep item APEX, san sang cho lan chon file tiep theo
+      var apexRemoveBtn = dropzone.querySelector('.a-FileDrop-remove');
+      if (apexRemoveBtn) apexRemoveBtn.click();
+    });
+  }
+
+  var _emojiPickerOpen = false;
+  window.msToggleEmojiPicker = function (e) {
+    e.stopPropagation();
+    _emojiPickerOpen = !_emojiPickerOpen;
+    var picker = document.getElementById('ms-emoji-picker');
+    if (picker) picker.classList.toggle('open', _emojiPickerOpen);
+  };
+
+  var _fmtToolbarTimer = null;
+  function setFmtToolbarVisible(visible) {
+    clearTimeout(_fmtToolbarTimer);
+    var toolbar = document.getElementById('ms-fmt-toolbar');
+    if (!toolbar) return;
+    if (visible) {
+      toolbar.classList.add('visible');
+    } else {
+      _fmtToolbarTimer = setTimeout(function () { toolbar.classList.remove('visible'); }, 150);
+    }
+  }
 
   // ============================================================
   // REPLY
@@ -365,7 +702,8 @@
     _convMenuId = convId;
     if (item) item.classList.add('menu-open');
 
-    var isDM      = convType === 'DM';
+    // DOC 1-1 cũng có partnerId (server chỉ trả khi <=2 thành viên) → coi như DM cho menu này
+    var isDM      = convType === 'DM' || convType === 'DOC';
     var partnerId = item ? item.dataset.partnerId : '';
     var menu      = document.getElementById('ms-conv-menu');
 
@@ -770,7 +1108,10 @@
     _s2SearchTimer = setTimeout(function () { loadS2Contacts(val); }, 280);
   };
 
-  // Nút chính: 1 người → tạo DM; ≥2 → tạo nhóm
+  // Nút chính: 1 người → tạo DM/DOC; ≥2 → tạo nhóm (CHANNEL/DOC).
+  // entryDoc đang set (modal mở từ "Trao đổi" ở trang chứng từ) → mọi hội thoại
+  // mới tạo trong phiên này đều conv_type='DOC', kèm doc_type/doc_no — bất kể
+  // scopeMode đang là DOC hay ALL (entryDoc = phiên modal này gắn với 1 chứng từ).
   window.msComposeSubmit = function () {
     var n = selectedMembers.length;
     if (n === 0) return;
@@ -785,48 +1126,60 @@
         return m ? m.name.split(' ').pop() : '';
       }).filter(Boolean).join(', ');
     }
-    var btn = document.getElementById('ms-compose-action');
-    if (btn) { btn.disabled = true; btn.textContent = 'Đang tạo...'; }
-    nodePost('/create', {
-      conv_type:      'CHANNEL',
+    var convType = entryDoc ? 'DOC' : 'CHANNEL';
+    var payload  = {
+      conv_type:      convType,
       name:           name,
       aus_id:         AUS_ID,
       member_aus_ids: selectedMembers
-    }, function (d) {
+    };
+    if (entryDoc) { payload.doc_type = entryDoc.doc_type; payload.doc_no = entryDoc.doc_no; }
+
+    var btn = document.getElementById('ms-compose-action');
+    if (btn) { btn.disabled = true; btn.textContent = 'Đang tạo...'; }
+    nodePost('/create', payload, function (d) {
       if (btn) { btn.disabled = false; btn.textContent = 'Tạo nhóm'; }
       if (d && d.conv_id) {
         lpSlideTo(1);
         loadConvList();
-        setTimeout(function () { window.msSelectConv(d.conv_id, 'CHANNEL'); }, 300);
+        setTimeout(function () { window.msSelectConv(d.conv_id, convType); }, 300);
       } else if (d && d.error) {
         alert('Lỗi tạo nhóm: ' + d.error);
       }
     });
   };
 
-  // Mở 1 DM (đã có hoặc vừa tạo) → về danh sách + chọn
-  function openDM(convId) {
+  // Mở 1 hội thoại 1-1 (DM hoặc DOC, đã có hoặc vừa tạo) → về danh sách + chọn
+  function openConv(convId, convType) {
     lpSlideTo(1);
     loadConvList();
-    setTimeout(function () { window.msSelectConv(convId, 'DM'); }, 300);
+    setTimeout(function () { window.msSelectConv(convId, convType); }, 300);
   }
 
-  // Tạo DM (1 người). Chống trùng: hỏi APEX (msFindDM) xem DM đã tồn tại chưa.
+  // Tạo DM/DOC (1 người). Chống trùng: hỏi APEX (msFindDM) xem hội thoại đã tồn tại chưa.
   // - Có → mở lại conv cũ (đã tự bỏ ẩn / rejoin phía callback).
   // - Chưa → tạo mới qua Node /create (giữ real-time cho đối phương).
+  // entryDoc set → tạo conv_type='DOC' kèm doc_type/doc_no (dedup riêng theo đúng chứng từ).
   function msCreateDM(ausId) {
-    apexCall('msFindDM', { x01: ausId }, 'json', function (d) {
+    var findParams = { x01: ausId };
+    var convType   = entryDoc ? 'DOC' : 'DM';
+    if (entryDoc) { findParams.x02 = entryDoc.doc_type; findParams.x03 = entryDoc.doc_no; }
+
+    apexCall('msFindDM', findParams, 'json', function (d) {
       if (d && d.found && d.conv_id) {
-        openDM(d.conv_id);
+        openConv(d.conv_id, convType);
         return;
       }
-      nodePost('/create', {
-        conv_type:      'DM',
+      var payload = {
+        conv_type:      convType,
         aus_id:         AUS_ID,
         member_aus_ids: [ausId]
-      }, function (r) {
+      };
+      if (entryDoc) { payload.doc_type = entryDoc.doc_type; payload.doc_no = entryDoc.doc_no; }
+
+      nodePost('/create', payload, function (r) {
         if (r && r.conv_id) {
-          openDM(r.conv_id);
+          openConv(r.conv_id, convType);
         } else if (r && r.error) {
           alert('Lỗi: ' + r.error);
         }
@@ -897,6 +1250,13 @@
       if (ev.conv_id == activeConvId) {
         refreshThread(activeConvId);
         hideTypingIndicator(ev.msg && ev.msg.from_aus_id);
+      } else {
+        // Tin tới hội thoại KHÁC hội thoại đang mở.
+        // ev.doc_type/doc_no/conv_name do server enrich (chat.js POST /send) — không cần lookup thêm.
+        if (scopeMode === 'DOC' && entryDoc && ev.doc_no !== entryDoc.doc_no) {
+          pushCrossDoc(ev.conv_id, ev.doc_no, ev.conv_name);
+        }
+        refreshUnreadSummary();
       }
     } else if (ev.type === 'typing') {
       if (ev.conv_id == activeConvId && ev.aus_id != AUS_ID) {
@@ -914,6 +1274,11 @@
     } else if (ev.type === 'pin') {
       // Forward-looking: cần Node broadcast {type:'pin',conv_id,msg_id}
       if (ev.conv_id == activeConvId) { msLoadPinBanner(activeConvId); loadThread(activeConvId); }
+    } else if (ev.type === 'attachment') {
+      // File vừa upload xong sau khi tin nhắn (rỗng) đã được tạo - load lại thread
+      // để msMsgThreadHtml (đã JOIN bảng file) render file vào đúng bong bóng đó.
+      if (ev.conv_id == activeConvId) loadThread(activeConvId);
+      else loadConvList();
     }
   }
 
@@ -942,6 +1307,48 @@
         clearTimeout(_typingDebounce);
         _typingDebounce = setTimeout(sendTyping, 600);
       });
+      inputEl.addEventListener('focus', function () { setFmtToolbarVisible(true); });
+      inputEl.addEventListener('blur', function () { setFmtToolbarVisible(false); });
+    }
+
+    // Theo doi DROPZONE cua APEX File Browse item. Tuy nguon (_pendingFileSource)
+    // ma route: 'plus' -> gui ngay (msSendFileMessage), 'paste'/null -> hien preview bar
+    var attachDropzoneEl = document.getElementById('P10022710201_UPLOAD_FILE_DROPZONE');
+    if (attachDropzoneEl && window.MutationObserver) {
+      var attachObserver = new MutationObserver(function () {
+        var hasFiles = attachDropzoneEl.classList.contains('has-files');
+        if (hasFiles && _pendingFileSource === 'plus') {
+          _pendingFileSource = null;
+          msSendFileMessage();
+        } else {
+          syncFilePreviewFromDropzone();
+        }
+      });
+      attachObserver.observe(attachDropzoneEl, { attributes: true, attributeFilter: ['class', 'style'], childList: true, subtree: true });
+    }
+
+    // Paste anh/file vao o nhap -> gan vao item APEX qua DataTransfer, kich hoat 'change'
+    // that de component cua APEX tu cap nhat DOM (ten/size/mime) -> observer o tren se hien preview
+    if (inputEl) {
+      inputEl.addEventListener('paste', function (e) {
+        var cd = e.clipboardData || window.clipboardData;
+        if (!cd || !cd.items) return;
+        for (var i = 0; i < cd.items.length; i++) {
+          if (cd.items[i].kind !== 'file') continue;
+          var pastedFile = cd.items[i].getAsFile();
+          if (!pastedFile) continue;
+          e.preventDefault();
+          _pendingFileSource = 'paste';
+          var dt = new DataTransfer();
+          dt.items.add(pastedFile);
+          var nativeFileInput = document.getElementById('P10022710201_UPLOAD_FILE_input');
+          if (nativeFileInput) {
+            nativeFileInput.files = dt.files;
+            nativeFileInput.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          break; // chi xu ly 1 file moi lan paste
+        }
+      });
     }
 
     // Debounce search conv list
@@ -960,6 +1367,16 @@
       var bar = document.getElementById('ms-react-bar');
       if (_reactBarOpen && bar && !bar.contains(e.target) &&
           !e.target.closest('[onclick^="msOpenReactBar"]')) msCloseReactBar();
+      if (_attachMenuOpen && !e.target.closest('.ms-attach-menu-wrap')) {
+        _attachMenuOpen = false;
+        var am = document.getElementById('ms-attach-menu');
+        if (am) am.classList.remove('open');
+      }
+      if (_emojiPickerOpen && !e.target.closest('.ms-emoji-picker-wrap')) {
+        _emojiPickerOpen = false;
+        var ep = document.getElementById('ms-emoji-picker');
+        if (ep) ep.classList.remove('open');
+      }
     });
     document.addEventListener('keydown', function (e) {
       if (e.key !== 'Escape') return;
