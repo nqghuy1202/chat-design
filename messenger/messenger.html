@@ -50,9 +50,34 @@
             <input type="text" id="ms-conv-search" placeholder="Tìm kiếm...">
           </div>
           <div id="ms-filter-row">
-            <button type="button" class="ms-filter-chip active" data-filter="ALL">Tất cả</button>
-            <button type="button" class="ms-filter-chip" data-filter="UNREAD">Chưa đọc</button>
-            <button type="button" class="ms-filter-chip" data-filter="GROUP">Nhóm</button>
+            <div class="ms-filter-select" id="ms-type-select">
+              <button type="button" class="ms-filter-chip active ms-filter-select-trigger" id="ms-type-trigger" onclick="msToggleTypeMenu(event)">
+                <span id="ms-type-trigger-label">Tất cả</span>
+                <svg class="caret" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="ms-filter-menu" id="ms-type-menu">
+                <button type="button" class="ms-filter-menu-item selected" data-filter="ALL" onclick="msSelectTypeFilter(this)">
+                  <span>Tất cả</span>
+                  <svg class="check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+                <button type="button" class="ms-filter-menu-item" data-filter="DM" onclick="msSelectTypeFilter(this)">
+                  <span>Cá nhân</span>
+                  <svg class="check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+                <button type="button" class="ms-filter-menu-item" data-filter="GROUP" onclick="msSelectTypeFilter(this)">
+                  <span>Nhóm</span>
+                  <svg class="check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+                <button type="button" class="ms-filter-menu-item" data-filter="DOC" onclick="msSelectTypeFilter(this)">
+                  <span>Chứng từ</span>
+                  <svg class="check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+              </div>
+            </div>
+            <button type="button" class="ms-filter-chip ms-filter-unread" id="ms-unread-toggle" onclick="msToggleUnreadFilter()">
+              <span class="dot"></span>
+              <span>Chưa đọc</span>
+            </button>
           </div>
         </div>
 
@@ -130,6 +155,11 @@
         <span id="ms-chat-header-sub"></span>
       </div>
       <div id="ms-chat-header-actions">
+        <button type="button" id="ms-header-search-btn" title="Tìm kiếm tin nhắn" onclick="msToggleConvSearch()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+        </button>
         <button type="button" id="ms-toggle-info-btn" title="Thông tin hội thoại">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/>
@@ -164,6 +194,18 @@
       <button type="button" class="ms-cd-dismiss" onclick="msCloseCrossDocBanner()" title="Bỏ qua">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
+    </div>
+
+    <!-- Tìm kiếm tin nhắn trong hội thoại (mở từ icon kính lúp ở chat header) -->
+    <div id="ms-msgsearch" style="display:none;">
+      <div class="ms-cs-bar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="ms-cs-input" placeholder="Tìm trong hội thoại..." autocomplete="off" oninput="msConvSearchInput(this.value)" onkeydown="if(event.key==='Escape')msCloseConvSearch()">
+        <button type="button" id="ms-cs-close" onclick="msCloseConvSearch()" title="Đóng">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div id="ms-cs-results"></div>
     </div>
 
     <!-- Messages -->
@@ -201,20 +243,19 @@
         <div id="ms-chat-input" contenteditable="true" data-placeholder="Nhập tin nhắn..."></div>
         <div id="ms-input-row">
           <div class="ms-attach-menu-wrap">
-            <button type="button" class="ms-tb-btn" title="Đính kèm" onclick="msToggleAttachMenu(event)">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <button type="button" class="ms-tb-btn" title="Đính kèm ảnh, video, tệp tin" onclick="msTriggerFileUpload()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
             </button>
-            <div id="ms-attach-menu" class="ms-attach-menu">
-              <button type="button" class="ms-attach-menu-item" onclick="msTriggerFileUpload()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span>Ảnh / Video</span></button>
-              <button type="button" class="ms-attach-menu-item" onclick="msTriggerFileUpload()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><span>Tệp tin</span></button>
-            </div>
           </div>
           <div class="ms-input-row-right">
             <div class="ms-emoji-picker-wrap">
               <button type="button" class="ms-tb-btn" title="Emoji" onclick="msToggleEmojiPicker(event)">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
               </button>
-              <div id="ms-emoji-picker" class="ms-emoji-picker"></div>
+              <div id="ms-emoji-picker" class="ms-emoji-picker">
+                <input class="ms-emoji-search-input" id="ms-emoji-search-inp" type="text" placeholder="Tìm emoji..." oninput="msFilterEmoji(this.value)">
+                <div id="ms-emoji-grid-wrap"></div>
+              </div>
             </div>
             <button type="button" id="ms-send-btn" onclick="msSendMessage()" title="Gửi (Enter)">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">

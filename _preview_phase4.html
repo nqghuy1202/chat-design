@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Preview Phase 4 — Dấu tick chọn liên hệ</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="messenger/messenger.css">
+<style>
+  body { margin:0; background:#E2E8F0; padding:24px; font-family:'Outfit',sans-serif; }
+  .label { font-size:12px; font-weight:700; color:#475569; margin-bottom:8px; }
+  .frame { width:272px; height:620px; box-shadow:0 10px 40px rgba(15,23,42,.15); border-radius:14px; overflow:hidden; }
+  #ms-root.demo { height:620px; display:block; }
+  .demo #ms-lp-s2 { display:flex; }
+</style>
+</head>
+<body>
+<div class="label">SOẠN TIN — dấu tick chọn (bấm thử các dòng để xem hiệu ứng)</div>
+<div class="frame">
+  <div id="ms-root" class="demo">
+    <div id="ms-lp-s2">
+
+      <div class="ms-lp-sh">
+        <button type="button" class="ms-lp-back-btn" title="Đóng"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        <span class="ms-lp-sh-title">Tin nhắn mới</span>
+      </div>
+
+      <div class="ms-compose-recip-wrap">
+        <div id="ms-compose-recip" class="ms-compose-recip">
+          <span class="ms-compose-to-label">Tới:</span>
+          <span id="ms-s2-chips" class="ms-compose-chips">
+            <span class="ms-chip"><span class="ms-chip-av">T</span>Lê Thị Thủy<button type="button" class="ms-chip-remove">✕</button></span>
+            <span class="ms-chip"><span class="ms-chip-av">H</span>HV Thiên Trung<button type="button" class="ms-chip-remove">✕</button></span>
+          </span>
+          <input type="text" class="ms-compose-input" placeholder="Tìm theo tên..." autocomplete="off">
+        </div>
+      </div>
+
+      <div id="ms-compose-name-wrap" class="ms-compose-name-wrap visible">
+        <input type="text" class="ms-s3-name-input" placeholder="Tên nhóm (tùy chọn)...">
+      </div>
+
+      <div id="ms-s2-contacts" class="ms-lp-list-wrap">
+
+        <div class="ms-dept-header">Ban Giám Hiệu</div>
+        <button type="button" class="ms-contact-item selected" onclick="this.classList.toggle('selected')">
+          <div class="ms-contact-av" style="background:hsl(210,55%,52%)">T<span class="ms-presence online"></span></div>
+          <div class="ms-contact-info"><div class="ms-contact-name">Lê Thị Thủy</div><div class="ms-contact-dept">Ban Giám Hiệu</div></div>
+          <div class="ms-contact-check"></div>
+        </button>
+
+        <div class="ms-dept-header">Ban Giám Đốc</div>
+        <button type="button" class="ms-contact-item selected" onclick="this.classList.toggle('selected')">
+          <div class="ms-contact-av" style="background:hsl(140,55%,52%)">H<span class="ms-presence online"></span></div>
+          <div class="ms-contact-info"><div class="ms-contact-name">HV Thiên Trung</div><div class="ms-contact-dept">Ban Giám Đốc</div></div>
+          <div class="ms-contact-check"></div>
+        </button>
+        <button type="button" class="ms-contact-item" onclick="this.classList.toggle('selected')">
+          <div class="ms-contact-av" style="background:hsl(20,55%,52%)"><img src="https://i.pravatar.cc/80?img=15" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:inherit">N<span class="ms-presence offline"></span></div>
+          <div class="ms-contact-info"><div class="ms-contact-name">Nguyễn Cát Minh</div><div class="ms-contact-dept">Ban Giám Đốc</div></div>
+          <div class="ms-contact-check"></div>
+        </button>
+        <button type="button" class="ms-contact-item" onclick="this.classList.toggle('selected')">
+          <div class="ms-contact-av" style="background:hsl(265,55%,52%)">N<span class="ms-presence offline"></span></div>
+          <div class="ms-contact-info"><div class="ms-contact-name">Nguyễn Thành Nguyên</div><div class="ms-contact-dept">Ban Giám Đốc</div></div>
+          <div class="ms-contact-check"></div>
+        </button>
+        <button type="button" class="ms-contact-item" onclick="this.classList.toggle('selected')">
+          <div class="ms-contact-av" style="background:hsl(330,55%,52%)">N<span class="ms-presence online"></span></div>
+          <div class="ms-contact-info"><div class="ms-contact-name">Nguyễn Thị Kim Dung</div><div class="ms-contact-dept">Ban Giám Đốc</div></div>
+          <div class="ms-contact-check"></div>
+        </button>
+
+        <div class="ms-dept-header">Ban Trợ Lý - Thư Ký</div>
+        <button type="button" class="ms-contact-item" onclick="this.classList.toggle('selected')">
+          <div class="ms-contact-av" style="background:hsl(95,55%,52%)">T<span class="ms-presence offline"></span></div>
+          <div class="ms-contact-info"><div class="ms-contact-name">Trần Minh Huy</div><div class="ms-contact-dept">Ban Trợ Lý - Thư Ký</div></div>
+          <div class="ms-contact-check"></div>
+        </button>
+
+      </div>
+
+      <div class="ms-lp-sf">
+        <button type="button" class="ms-lp-create-btn">Tạo nhóm</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

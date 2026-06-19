@@ -88,22 +88,85 @@
 /* Filter chips */
 #ms-filter-row {
   display: flex;
-  gap: 4px;
+  gap: 5px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;            /* Firefox: ẩn thanh cuộn ngang */
+  -ms-overflow-style: none;
 }
+#ms-filter-row::-webkit-scrollbar { display: none; }   /* WebKit: ẩn thanh cuộn */
 .ms-filter-chip {
-  padding: 5px 12px;
-  border-radius: 8px;
-  border: none;
+  flex: 0 0 auto;                   /* không co, không xuống dòng — tràn thì cuộn ngang */
+  padding: 5px 11px;
+  border-radius: 999px;            /* pill: gọn, rõ là filter */
+  border: 1px solid transparent;   /* giữ chỗ để active không nhảy layout */
   font-size: 12px;
   font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
   background: transparent;
-  color: #94A3B8;
+  color: #64748B;
   font-family: inherit;
-  transition: background .12s, color .12s;
+  transition: background .12s, color .12s, border-color .12s;
 }
-.ms-filter-chip.active { background: #EFF6FF; color: #2563EB; }
-.ms-filter-chip:hover:not(.active) { background: #F1F5F9; color: #475569; }
+.ms-filter-chip.active {
+  background: #EFF6FF;
+  border-color: #DBEAFE;
+  color: #2563EB;
+  font-weight: 600;
+}
+.ms-filter-chip:hover:not(.active) { background: #F1F5F9; color: #334155; }
+
+/* ── Filter chip 1: dropdown loại hội thoại ── */
+.ms-filter-select { position: relative; flex: 0 0 auto; }
+.ms-filter-select-trigger { display: flex; align-items: center; gap: 5px; }
+.ms-filter-select-trigger svg.caret { transition: transform .15s ease; flex-shrink: 0; }
+.ms-filter-select-trigger.open svg.caret { transform: rotate(180deg); }
+
+.ms-filter-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 152px;
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(15,23,42,.12), 0 2px 8px rgba(15,23,42,.06);
+  padding: 4px;
+  z-index: 20;
+  display: none;
+}
+.ms-filter-menu.open { display: block; }
+.ms-filter-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  text-align: left;
+}
+.ms-filter-menu-item:hover { background: #F1F5F9; }
+.ms-filter-menu-item.selected { color: #2563EB; font-weight: 600; }
+.ms-filter-menu-item svg.check { opacity: 0; flex-shrink: 0; }
+.ms-filter-menu-item.selected svg.check { opacity: 1; }
+
+/* ── Filter chip 2: toggle chưa đọc ── */
+.ms-filter-chip.ms-filter-unread { display: flex; align-items: center; gap: 5px; }
+.ms-filter-chip.ms-filter-unread .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #94A3B8;
+  flex-shrink: 0;
+}
+.ms-filter-chip.ms-filter-unread.active .dot { background: #2563EB; }
 
 /* ── Scope segmented (Chung tu nay / Tat ca) — chi hien khi co entryDoc ── */
 #ms-scope-box { display: none; padding: 10px 10px 4px; flex-shrink: 0; }
@@ -128,13 +191,7 @@
 .ms-scope-seg button:not(.active):hover { color: #334155; }
 .ms-seg-count { display: inline-block; margin-left: 4px; font-size: 11px; font-weight: 700; color: #2563EB; }
 
-/* Section "Dang xem" — ghim hoi thoai cua entryDoc len dau khi xem Tat ca */
-/* Ket hop voi .ms-section-label (xem messenger/docs/callbacks.sql msConvListHtml) */
-.ms-section-label.ms-viewing-label {
-  color: #2563EB; text-transform: none; letter-spacing: 0.01em; font-size: 11px;
-}
-
-/* Conv list */
+/* Conv list — danh sách phẳng, sắp theo thời gian (không còn section label) */
 #ms-conv-list {
   flex: 1;
   overflow-y: auto;
@@ -143,16 +200,14 @@
 #ms-conv-list::-webkit-scrollbar { width: 4px; }
 #ms-conv-list::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 2px; }
 
-/* Section label */
-.ms-section-label {
-  font-size: 10px;
-  font-weight: 700;
+/* Dấu ghim trên item (thay cho section "Ghim" đã bỏ) */
+.ms-ci-pin {
+  font-size: 9px;
   color: #94A3B8;
-  letter-spacing: 0.08em;
-  padding: 10px 8px 3px;
-  text-transform: uppercase;
+  margin-right: 5px;
+  transform: rotate(20deg);
+  flex-shrink: 0;
 }
-.ms-section-label:first-child { padding-top: 4px; }
 
 /* Conv item */
 .ms-conv-item {
@@ -174,13 +229,16 @@
 }
 .ms-conv-item:hover { background: #F1F5F9; }
 .ms-conv-item.active { background: #EFF6FF; }
+.ms-conv-item.active .ms-ci-name { color: #1D4ED8; }
+.ms-conv-item.active .ms-ci-av .ms-presence { border-color: #EFF6FF; }
+.ms-conv-item:hover .ms-ci-av .ms-presence { border-color: #F1F5F9; }
 .ms-conv-item.unread .ms-ci-name { font-weight: 700; }
 .ms-conv-item.unread .ms-ci-preview { color: #475569; font-weight: 500; }
 
 /* Conv avatar */
 .ms-ci-av {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   flex-shrink: 0;
   background: #64748B;
@@ -189,7 +247,7 @@
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 14px;
   position: relative;
   overflow: visible;
 }
@@ -233,19 +291,41 @@
   color: #94A3B8;
   flex-shrink: 0;
 }
-/* Badge chứng từ — chỉ hiện trên hội thoại conv_type='DOC' */
+/* Badge chứng từ — chip nổi bật (icon + nền + chữ accent), chỉ hiện trên conv_type='DOC' */
 .ms-ci-docbadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 1px 0 3px;
+  padding: 1.5px 7px 1.5px 6px;
+  background: #EFF6FF;
+  border: 1px solid #DBEAFE;
+  border-radius: 6px;
   font-size: 10.5px;
-  color: #94A3B8;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+  color: #1D4ED8;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 2px;
+  box-sizing: border-box;
 }
+.ms-ci-docbadge::before {
+  content: '';
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%231D4ED8' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpolyline points='14 2 14 8 20 8'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+/* Trên dòng đang chọn (nền #EFF6FF) — đổi nền chip sang trắng để vẫn nổi bật */
+.ms-conv-item.active .ms-ci-docbadge { background: #fff; border-color: #BFDBFE; }
 .ms-ci-preview {
   flex: 1;
   font-size: 12.5px;
-  color: #94A3B8;
+  color: #64748B;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -255,11 +335,16 @@
   color: #fff;
   font-size: 10px;
   font-weight: 700;
-  padding: 1px 6px;
-  border-radius: 999px;
-  flex-shrink: 0;
   min-width: 18px;
-  text-align: center;
+  height: 18px;
+  border-radius: 999px;   /* 1 chữ số = tròn (18×18); ≥2 chữ số = pill bo tròn */
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0 5px;
+  box-sizing: border-box;
 }
 
 /* ── Dot-menu trên từng dòng hội thoại ─────────────────────── */
@@ -439,17 +524,29 @@
   font-weight: 600;
   font-size: 13px;
   flex-shrink: 0;
-  overflow: hidden;
+  overflow: visible;
   position: relative;
 }
 #ms-chat-header-av img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: inherit;
   position: absolute;
   inset: 0;
 }
 #ms-chat-header-av.group { border-radius: 10px; }
+#ms-chat-header-av .ms-presence {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: #94A3B8;
+}
+#ms-chat-header-av .ms-presence.online { background: #22C55E; }
 #ms-chat-header-info { flex: 1; min-width: 0; }
 #ms-chat-header-name {
   font-weight: 600;
@@ -483,7 +580,8 @@
   transition: background .12s;
 }
 #ms-chat-header-actions button:hover { background: #F1F5F9; color: #2563EB; }
-#ms-toggle-info-btn.active { background: #EFF6FF; color: #2563EB; }
+#ms-toggle-info-btn.active,
+#ms-header-search-btn.active { background: #EFF6FF; color: #2563EB; }
 
 /* Messages */
 #ms-messages {
@@ -739,6 +837,42 @@
   0%, 30% { box-shadow: 0 0 0 3px rgba(37,99,235,.30); border-radius: 12px; }
   100%    { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
 }
+
+/* ── File/ảnh đính kèm trong tin nhắn — theo nexus-pure-v2 .file-card/.img-card ── */
+.file-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 11px 14px;
+  max-width: 300px;
+  background: #F8FAFC;
+  margin-top: 8px;
+}
+.file-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.file-icon--label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.img-card {
+  margin-top: 8px;
+  border-radius: 12px;
+  overflow: hidden;
+  max-width: 320px;
+  border: 1px solid #E2E8F0;
+  display: block;
+}
+.img-card img { display: block; width: 100%; }
 
 /* ── Banner tin ghim (đầu thread) — theo nexus ─────────────── */
 #ms-pin-banner {
@@ -1154,44 +1288,8 @@
 
 /* Menu đính kèm (Ảnh/Video, Tệp tin) */
 .ms-attach-menu-wrap { position: relative; }
-.ms-attach-menu {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: -8px;
-  z-index: 200;
-  background: white;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(15,23,42,.10), 0 2px 8px rgba(15,23,42,.06);
-  padding: 4px;
-  width: 168px;
-  opacity: 0;
-  transform: scale(.94) translateY(8px);
-  transform-origin: bottom left;
-  transition: opacity .14s cubic-bezier(.16,1,.3,1), transform .14s cubic-bezier(.16,1,.3,1);
-  pointer-events: none;
-}
-.ms-attach-menu.open { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
-.ms-attach-menu-item {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 7px 9px;
-  border-radius: 8px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: #1E293B;
-  text-align: left;
-}
-.ms-attach-menu-item:hover { background: #F1F5F9; }
-.ms-attach-menu-item svg { color: #64748B; flex-shrink: 0; }
 
-/* Emoji picker (khung rỗng - nội dung lưới emoji sẽ thêm khi làm chức năng) */
+/* Emoji picker */
 .ms-emoji-picker-wrap { position: relative; }
 .ms-emoji-picker {
   position: absolute;
@@ -1212,6 +1310,21 @@
   pointer-events: none;
 }
 .ms-emoji-picker.open { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
+.ms-emoji-search-input {
+  width: 100%; padding: 6px 10px; border: 1px solid #E2E8F0; border-radius: 8px;
+  font-family: 'Outfit', sans-serif; font-size: 12.5px; outline: none;
+  margin-bottom: 8px; color: #334155; box-sizing: border-box;
+}
+.ms-emoji-search-input:focus { border-color: var(--c-medium); }
+.ms-emoji-cat-label { font-size: 9.5px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.07em; margin: 6px 0 3px 1px; }
+.ms-emoji-grid { display: grid; grid-template-columns: repeat(8,1fr); gap: 1px; }
+.ms-emoji-btn {
+  width: 29px; height: 29px; border-radius: 6px; border: none; background: transparent;
+  cursor: pointer; font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.1s, transform 0.1s;
+}
+.ms-emoji-btn:hover { background: #F1F5F9; transform: scale(1.2); }
 
 #ms-send-btn {
   width: 32px;
@@ -1273,12 +1386,12 @@
 /* Info sections */
 .ms-info-section { margin-bottom: 4px; }
 .ms-info-section-title {
-  font-size: 10px;
-  font-weight: 700;
-  color: #94A3B8;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 10px 16px 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 14px 16px 6px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1304,12 +1417,13 @@
   justify-content: center;
   flex-shrink: 0;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 .ms-member-av img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: inherit;
   position: absolute;
   inset: 0;
 }
@@ -1341,6 +1455,82 @@
   flex-shrink: 0;
 }
 .ms-member-badge.admin { background: #DBEAFE; color: #1D4ED8; }
+
+/* ── Ảnh & Video chia sẻ (right panel) — theo nexus .media-grid/.media-thumb ── */
+.ms-media-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  padding: 0 16px 12px;
+}
+.ms-media-thumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  display: block;
+  transition: opacity .15s;
+}
+.ms-media-thumb:hover { opacity: .85; }
+.ms-media-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ms-media-more {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ── File đính kèm chia sẻ (right panel) — theo nexus rpSharedFiles ── */
+.ms-shared-file-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 16px;
+  text-decoration: none;
+  transition: background .1s;
+}
+.ms-shared-file-row:hover { background: #F8FAFC; }
+.ms-shared-file-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ms-shared-file-icon--label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.ms-shared-file-info { flex: 1; min-width: 0; }
+.ms-shared-file-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #334155;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ms-shared-file-size { font-size: 10.5px; color: #94A3B8; }
+.ms-shared-file-dl {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #94A3B8;
+}
+.ms-shared-file-row:hover .ms-shared-file-dl { background: #F1F5F9; color: #475569; }
 #ms-lp-track {
   display: flex;
   flex-direction: row;
@@ -1585,13 +1775,14 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  overflow: hidden;
+  overflow: visible;
   position: relative;
 }
 .ms-contact-av img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: inherit;
   position: absolute;
   inset: 0;
 }
@@ -1616,29 +1807,36 @@
 }
 .ms-contact-dept { font-size: 12px; color: #94A3B8; }
 .ms-contact-check {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  border: 2px solid #CBD5E1;
+  border: 1.5px solid #CBD5E1;
+  background: #fff;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background .12s, border-color .12s;
+  transition: background .15s, border-color .15s, transform .12s;
 }
+.ms-contact-item:hover .ms-contact-check { border-color: #93C5FD; }
 .ms-contact-item.selected .ms-contact-check {
   background: #2563EB;
   border-color: #2563EB;
+  animation: ms-check-pop .22s cubic-bezier(.22, 1, .36, 1);
 }
 .ms-contact-item.selected .ms-contact-check::after {
   content: '';
   width: 5px;
-  height: 8px;
-  border: 2px solid #fff;
-  border-top: none;
-  border-left: none;
-  transform: rotate(42deg) translateY(-1px);
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-0.5px, -1px);
   display: block;
+}
+@keyframes ms-check-pop {
+  0%   { transform: scale(.6); }
+  60%  { transform: scale(1.12); }
+  100% { transform: scale(1); }
 }
 
 /* Chips */
@@ -1683,44 +1881,8 @@
 .ms-chip-remove:hover { background: rgba(37,99,235,.35); }
 
 /* ============================================================
-   RIGHT PANEL — ACTION BUTTONS & OPTIONS
+   RIGHT PANEL — OPTIONS
    ============================================================ */
-
-.ms-rp-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 16px 12px 4px;
-  justify-content: center;
-}
-.ms-rp-action-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  flex: 1;
-  padding: 8px 4px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  border-radius: 10px;
-  transition: background .12s;
-  font-family: inherit;
-}
-.ms-rp-action-btn:hover { background: #F1F5F9; }
-.ms-rp-action-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #F1F5F9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #334155;
-  transition: background .12s;
-}
-.ms-rp-action-btn:hover .ms-rp-action-icon { background: #E2E8F0; }
-.ms-rp-action-label { font-size: 10.5px; color: #64748B; white-space: nowrap; }
 
 .ms-rp-opt {
   display: flex;
@@ -1857,4 +2019,88 @@
     transition: none;
   }
 }
+
+/* ============================================================
+   TÌM KIẾM TIN NHẮN TRONG HỘI THOẠI (#ms-msgsearch)
+   ============================================================ */
+#ms-msgsearch {
+  position: relative;
+  z-index: 30;
+  border-bottom: 1px solid #F1F5F9;
+  background: #fff;
+}
+.ms-cs-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+}
+#ms-cs-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  color: #0F172A;
+}
+#ms-cs-input::placeholder { color: #94A3B8; }
+#ms-cs-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #64748B;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+#ms-cs-close:hover { background: #F1F5F9; }
+#ms-cs-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(15,23,42,.12), 0 2px 8px rgba(15,23,42,.06);
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+#ms-cs-results:empty { display: none; }
+.ms-cs-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 9px 14px;
+  border-bottom: 1px solid #F8FAFC;
+  font-family: inherit;
+}
+.ms-cs-item:hover { background: #F8FAFC; }
+.ms-cs-item-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.ms-cs-item-name { font-size: 12px; font-weight: 600; color: #1E293B; }
+.ms-cs-item-date { font-size: 10.5px; color: #94A3B8; flex-shrink: 0; }
+.ms-cs-item-body {
+  font-size: 12.5px;
+  color: #475569;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ms-cs-item-body mark { background: #FEF08A; color: inherit; padding: 0 1px; border-radius: 2px; }
+.ms-cs-empty { padding: 16px 14px; font-size: 12.5px; color: #94A3B8; text-align: center; }
 

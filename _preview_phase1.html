@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preview Phase 1 — Danh sách hội thoại</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="messenger/messenger.css">
+<style>
+  body { margin:0; background:#E2E8F0; display:flex; gap:24px; padding:24px; font-family:'Outfit',sans-serif; }
+  .frame { box-shadow:0 10px 40px rgba(15,23,42,.15); border-radius:14px; overflow:hidden; }
+  .label { font-size:12px; font-weight:700; color:#475569; margin-bottom:8px; }
+  /* thu nhỏ #ms-root cho preview cạnh nhau */
+  #ms-root { height:640px; }
+  #ms-left { height:100%; }
+
+  /* ── Filter chip 1: dropdown loại hội thoại ── */
+  .ms-filter-select {
+    position: relative;
+  }
+  .ms-filter-select-trigger {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .ms-filter-select-trigger svg.caret {
+    transition: transform .15s ease;
+    flex-shrink: 0;
+  }
+  .ms-filter-select-trigger.open svg.caret { transform: rotate(180deg); }
+
+  .ms-filter-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 152px;
+    background: white;
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    box-shadow: 0 12px 28px rgba(15,23,42,.12), 0 2px 8px rgba(15,23,42,.06);
+    padding: 4px;
+    z-index: 20;
+    display: none;
+  }
+  .ms-filter-menu.open { display: block; }
+  .ms-filter-menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 7px 9px;
+    border-radius: 7px;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #334155;
+    cursor: pointer;
+    text-align: left;
+  }
+  .ms-filter-menu-item:hover { background: #F1F5F9; }
+  .ms-filter-menu-item.selected { color: #2563EB; font-weight: 600; }
+  .ms-filter-menu-item svg.check { opacity: 0; flex-shrink: 0; }
+  .ms-filter-menu-item.selected svg.check { opacity: 1; }
+
+  /* ── Filter chip 2: toggle chưa đọc ── */
+  .ms-filter-chip.ms-filter-unread {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .ms-filter-chip.ms-filter-unread .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #94A3B8;
+    flex-shrink: 0;
+  }
+  .ms-filter-chip.ms-filter-unread.active .dot { background: #2563EB; }
+</style>
+</head>
+<body>
+<div>
+  <div class="label">Danh sách phẳng theo thời gian + filter: dropdown loại + toggle chưa đọc (ghim nổi đầu, có dấu ghim)</div>
+  <div class="frame">
+    <div id="ms-root">
+      <div id="ms-left">
+        <div id="ms-lp-track">
+          <div id="ms-lp-s1">
+
+            <div id="ms-lp-app-header">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div id="ms-app-logo">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="white"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </div>
+                <span style="font-weight:600;font-size:14px;color:#0F172A">Tin nhắn</span>
+              </div>
+              <button type="button" id="ms-compose-btn" title="Soạn tin nhắn mới">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+            </div>
+
+            <div id="ms-lp-header">
+              <div class="ms-search-wrap">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input type="text" id="ms-conv-search" placeholder="Tìm kiếm...">
+              </div>
+              <div id="ms-filter-row">
+
+                <div class="ms-filter-select" id="ms-type-select">
+                  <button type="button" class="ms-filter-chip active ms-filter-select-trigger" id="ms-type-trigger" onclick="msPreviewToggleMenu(event)">
+                    <span id="ms-type-trigger-label">Tất cả</span>
+                    <svg class="caret" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                  <div class="ms-filter-menu" id="ms-type-menu">
+                    <button type="button" class="ms-filter-menu-item selected" data-value="all" onclick="msPreviewSelectType(this)">
+                      <span>Tất cả</span>
+                      <svg class="check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </button>
+                    <button type="button" class="ms-filter-menu-item" data-value="dm" onclick="msPreviewSelectType(this)">
+                      <span>Cá nhân</span>
+                      <svg class="check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </button>
+                    <button type="button" class="ms-filter-menu-item" data-value="group" onclick="msPreviewSelectType(this)">
+                      <span>Nhóm</span>
+                      <svg class="check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </button>
+                    <button type="button" class="ms-filter-menu-item" data-value="doc" onclick="msPreviewSelectType(this)">
+                      <span>Chứng từ</span>
+                      <svg class="check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </button>
+                  </div>
+                </div>
+
+                <button type="button" class="ms-filter-chip ms-filter-unread" id="ms-unread-toggle" onclick="msPreviewToggleUnread(this)">
+                  <span class="dot"></span>
+                  <span>Chưa đọc</span>
+                </button>
+
+              </div>
+            </div>
+
+            <!-- Danh sách phẳng theo thời gian: ghim nổi đầu (có dấu ghim), còn lại mới nhất trước -->
+            <div id="ms-conv-list">
+
+              <!-- GHIM #1 — DM, có ảnh, active -->
+              <button type="button" class="ms-conv-item active">
+                <div class="ms-ci-av" style="background:hsl(20,55%,52%)">
+                  <img src="https://i.pravatar.cc/80?img=5" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%">T<span class="ms-presence online"></span>
+                </div>
+                <div class="ms-ci-body">
+                  <div class="ms-ci-row1"><span class="ms-ci-name">Tạ Quốc Thiên Trung</span><i class="fa fa-thumbtack ms-ci-pin" title="Đã ghim"></i><span class="ms-ci-time">13:42</span></div>
+                  <div class="ms-ci-row2"><span class="ms-ci-preview">xin chào, mai họp lúc mấy giờ nhỉ?</span></div>
+                </div>
+                <div role="button" tabindex="-1" class="ms-ci-menu-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></div>
+              </button>
+
+              <!-- GHIM #2 — nhóm -->
+              <button type="button" class="ms-conv-item group">
+                <div class="ms-ci-av group" style="background:hsl(265,55%,52%)"><i class="fa fa-users" style="font-size:16px"></i></div>
+                <div class="ms-ci-body">
+                  <div class="ms-ci-row1"><span class="ms-ci-name">Phòng Kế toán</span><i class="fa fa-thumbtack ms-ci-pin" title="Đã ghim"></i><span class="ms-ci-time">11:20</span></div>
+                  <div class="ms-ci-row2"><span class="ms-ci-preview">Chị Hà: gửi anh bảng cân đối tháng 6</span></div>
+                </div>
+                <div role="button" tabindex="-1" class="ms-ci-menu-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></div>
+              </button>
+
+              <!-- DOC 1-1, unread -->
+              <button type="button" class="ms-conv-item unread">
+                <div class="ms-ci-av" style="background:hsl(140,55%,52%)">
+                  <img src="https://i.pravatar.cc/80?img=33" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%">L<span class="ms-presence online"></span>
+                </div>
+                <div class="ms-ci-body">
+                  <div class="ms-ci-row1"><span class="ms-ci-name">Lê Minh Thuận</span><span class="ms-ci-time">13:40</span></div>
+                  <div class="ms-ci-docbadge">SO-2601/010</div>
+                  <div class="ms-ci-row2"><span class="ms-ci-preview">xin chào</span><span class="ms-ci-badge">2</span></div>
+                </div>
+                <div role="button" tabindex="-1" class="ms-ci-menu-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></div>
+              </button>
+
+              <!-- DOC nhóm -->
+              <button type="button" class="ms-conv-item group">
+                <div class="ms-ci-av group" style="background:hsl(210,55%,52%)"><i class="fa fa-users" style="font-size:16px"></i></div>
+                <div class="ms-ci-body">
+                  <div class="ms-ci-row1"><span class="ms-ci-name">Trao đổi đơn hàng SA1</span><span class="ms-ci-time">13:39</span></div>
+                  <div class="ms-ci-docbadge">SO-2601/010 · SA1 - Đơn hàng bán</div>
+                  <div class="ms-ci-row2"><span class="ms-ci-preview">HV Thiên Trung: ❤️</span></div>
+                </div>
+                <div role="button" tabindex="-1" class="ms-ci-menu-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></div>
+              </button>
+
+              <!-- DM thường -->
+              <button type="button" class="ms-conv-item">
+                <div class="ms-ci-av" style="background:hsl(48,55%,52%)">
+                  <img src="https://i.pravatar.cc/80?img=15" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%">H<span class="ms-presence offline"></span>
+                </div>
+                <div class="ms-ci-body">
+                  <div class="ms-ci-row1"><span class="ms-ci-name">Hoàng Văn Hải</span><span class="ms-ci-time">11:31</span></div>
+                  <div class="ms-ci-row2"><span class="ms-ci-preview">ok anh, em gửi lại sau nhé</span></div>
+                </div>
+                <div role="button" tabindex="-1" class="ms-ci-menu-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></div>
+              </button>
+
+              <!-- DM không ảnh (fallback initial), unread -->
+              <button type="button" class="ms-conv-item unread">
+                <div class="ms-ci-av" style="background:hsl(330,55%,52%)">N<span class="ms-presence offline"></span></div>
+                <div class="ms-ci-body">
+                  <div class="ms-ci-row1"><span class="ms-ci-name">Nguyễn Cát Minh</span><span class="ms-ci-time">10:02</span></div>
+                  <div class="ms-ci-row2"><span class="ms-ci-preview">Đã gửi file báo giá nhé</span><span class="ms-ci-badge">99+</span></div>
+                </div>
+                <div role="button" tabindex="-1" class="ms-ci-menu-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></div>
+              </button>
+
+              <!-- DOC 1-1 -->
+              <button type="button" class="ms-conv-item">
+                <div class="ms-ci-av" style="background:hsl(280,55%,52%)">
+                  <img src="https://i.pravatar.cc/80?img=12" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%">Đ<span class="ms-presence offline"></span>
+                </div>
+                <div class="ms-ci-body">
+                  <div class="ms-ci-row1"><span class="ms-ci-name">Trương Đinh</span><span class="ms-ci-time">18/06</span></div>
+                  <div class="ms-ci-docbadge">PO-2605/021</div>
+                  <div class="ms-ci-row2"><span class="ms-ci-preview">dạo này anh sao rồi?</span></div>
+                </div>
+                <div role="button" tabindex="-1" class="ms-ci-menu-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></div>
+              </button>
+
+            </div>
+
+            <div id="ms-user-row">
+              <div id="ms-user-avatar">TT</div>
+              <div id="ms-user-info">
+                <span id="ms-user-name">Trần Thúy</span>
+                <span id="ms-user-status-label" style="font-size:11px;color:#94A3B8;display:block;margin-top:1px">Đang hoạt động</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+function msPreviewToggleMenu(e){
+  e.stopPropagation();
+  document.getElementById('ms-type-trigger').classList.toggle('open');
+  document.getElementById('ms-type-menu').classList.toggle('open');
+}
+function msPreviewSelectType(btn){
+  document.querySelectorAll('.ms-filter-menu-item').forEach(i=>i.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('ms-type-trigger-label').textContent = btn.querySelector('span').textContent;
+  document.getElementById('ms-type-trigger').classList.remove('open');
+  document.getElementById('ms-type-menu').classList.remove('open');
+}
+function msPreviewToggleUnread(btn){
+  btn.classList.toggle('active');
+}
+document.addEventListener('click', function(){
+  document.getElementById('ms-type-trigger').classList.remove('open');
+  document.getElementById('ms-type-menu').classList.remove('open');
+});
+</script>
+</body>
+</html>

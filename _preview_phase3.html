@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Preview Phase 3 — Chat header avatar</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="messenger/messenger.css">
+<style>
+  body { margin:0; background:#E2E8F0; padding:24px; font-family:'Outfit',sans-serif; }
+  .label { font-size:12px; font-weight:700; color:#475569; margin:18px 0 8px; }
+  .frame { width:720px; background:#fff; box-shadow:0 10px 40px rgba(15,23,42,.15); border-radius:12px; overflow:hidden; }
+  /* ép header hiện trong preview */
+  .demo #ms-chat-header { display:flex; }
+  #ms-root.demo { height:auto; display:block; }
+</style>
+</head>
+<body>
+
+<div class="label">CHAT HEADER — có ảnh thật + đang hoạt động</div>
+<div class="frame">
+  <div id="ms-root" class="demo">
+    <div id="ms-chat-header">
+      <div id="ms-chat-header-av" style="background:hsl(210,55%,52%)">
+        <img src="https://i.pravatar.cc/80?img=12" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:inherit">Đ
+        <span class="ms-presence online"></span>
+      </div>
+      <div id="ms-chat-header-info">
+        <span id="ms-chat-header-name">Trương Đinh</span>
+        <span id="ms-chat-header-sub">
+          <span style="width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0;background:#22C55E"></span>
+          <span style="color:#16A34A">Đang hoạt động</span>
+        </span>
+      </div>
+      <div id="ms-chat-header-actions">
+        <button type="button" id="ms-toggle-info-btn" title="Thông tin"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="label">CHAT HEADER — fallback chữ cái + không hoạt động</div>
+<div class="frame">
+  <div id="ms-root" class="demo">
+    <div id="ms-chat-header">
+      <div id="ms-chat-header-av" style="background:hsl(330,55%,52%)">
+        N
+        <span class="ms-presence offline"></span>
+      </div>
+      <div id="ms-chat-header-info">
+        <span id="ms-chat-header-name">Nguyễn Cát Minh</span>
+        <span id="ms-chat-header-sub">
+          <span style="width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0;background:#CBD5E1"></span>
+          <span style="color:#94A3B8">Không hoạt động</span>
+        </span>
+      </div>
+      <div id="ms-chat-header-actions">
+        <button type="button" id="ms-toggle-info-btn" title="Thông tin"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="label">CHAT HEADER — nhóm</div>
+<div class="frame">
+  <div id="ms-root" class="demo">
+    <div id="ms-chat-header">
+      <div id="ms-chat-header-av" class="group" style="background:hsl(265,55%,52%)">
+        <i class="fa fa-users" style="font-size:15px"></i>
+      </div>
+      <div id="ms-chat-header-info">
+        <span id="ms-chat-header-name">Trao đổi đơn hàng SA1</span>
+        <span id="ms-chat-header-sub">4 thành viên</span>
+      </div>
+      <div id="ms-chat-header-actions">
+        <button type="button" id="ms-toggle-info-btn" title="Thông tin"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

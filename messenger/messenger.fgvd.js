@@ -8,10 +8,13 @@
 
   var PAGE_ID         = $v('pFlowStepId');  // page ID hiện tại
   var activeConvId    = null;               // conv đang chọn
-  var activeFilter    = 'ALL';              // filter chip đang active
+  var activeFilter    = 'ALL';              // dropdown loại hội thoại đang chọn (ALL/DM/GROUP/DOC)
+  var unreadOnly      = false;              // toggle "Chưa đọc" đang bật hay không
   var replyTo         = null;              // { id, name, body } hoặc null
   var selectedMembers = [];                // mảng aus_id đã chọn ở màn soạn tin (S2)
   var _lpScreen       = 1;                 // màn hình hiện tại: 1=S1 (list), 2=S2 (soạn tin)
+  var _composeMode    = 'new';             // 'new' = tạo hội thoại mới | 'add' = thêm TV vào nhóm sẵn có
+  var _addTargetConv  = null;              // conv_id đích khi _composeMode === 'add'
   var _s2SearchTimer  = null;
   var _infoVisible    = false;             // right panel hiển thị hay không
   var _searchTimeout  = null;             // debounce conv search
@@ -37,11 +40,16 @@
   var crossDocQueue   = [];               // [{convId, docNo, name}] tin den ngoai scope hien tai
 
   // ── Helper: gọi AJAX callback ──────────────────────────────
-  function apexCall(proc, params, dataType, onSuccess) {
+  // pageItems (optional): selector/array các page item cần gửi kèm session
+  // state (vd '#P10022710201_UPLOAD_FILE') — apex.server.process() KHÔNG tự
+  // gửi page item nào nếu không khai báo, khác với Ajax Callback gắn trực
+  // tiếp vào action của 1 item (tự động kèm giá trị item đó).
+  function apexCall(proc, params, dataType, onSuccess, pageItems) {
     apex.server.process(proc, params, {
-      pageId:   PAGE_ID,
-      dataType: dataType || 'json',
-      success: onSuccess,
+      pageId:    PAGE_ID,
+      dataType:  dataType || 'json',
+      pageItems: pageItems,
+      success:   onSuccess,
       error: function (xhr) {
         console.error('[Messenger] ' + proc + ' error:', xhr.status, xhr.responseText);
       }
@@ -171,7 +179,9 @@
       x04: (scopeMode === 'DOC' && entryDoc) ? entryDoc.doc_type : '',
       x05: (scopeMode === 'DOC' && entryDoc) ? entryDoc.doc_no   : '',
       // x06="1" khi can ghim section "Dang xem" len dau (xem Tat ca nhung mo tu 1 chung tu)
-      x06: (scopeMode === 'ALL' && entryDoc) ? '1' : '0'
+      x06: (scopeMode === 'ALL' && entryDoc) ? '1' : '0',
+      // x07="1" khi toggle "Chua doc" dang bat — ket hop AND voi x01 (loai), khong loai tru nhau
+      x07: unreadOnly ? '1' : '0'
     }, 'text', function (html) {
       listEl.innerHTML = html || '<div style="padding:32px 16px;text-align:center;color:#94A3B8;font-size:13px">Chưa có hội thoại nào</div>';
     });
@@ -197,6 +207,39 @@
   window.msSetScope = function (mode) {
     scopeMode = mode;
     updateScopeUI();
+    loadConvList();
+  };
+
+  // ============================================================
+  // FILTER: dropdown loai hoi thoai (chip 1) + toggle chua doc (chip 2)
+  // ============================================================
+  function closeTypeMenu() {
+    var trigger = document.getElementById('ms-type-trigger');
+    var menu = document.getElementById('ms-type-menu');
+    if (trigger) trigger.classList.remove('open');
+    if (menu) menu.classList.remove('open');
+  }
+
+  window.msToggleTypeMenu = function (e) {
+    e.stopPropagation();
+    document.getElementById('ms-type-trigger').classList.toggle('open');
+    document.getElementById('ms-type-menu').classList.toggle('open');
+  };
+
+  window.msSelectTypeFilter = function (btn) {
+    activeFilter = btn.dataset.filter;
+    document.querySelectorAll('.ms-filter-menu-item').forEach(function (i) {
+      i.classList.remove('selected');
+    });
+    btn.classList.add('selected');
+    document.getElementById('ms-type-trigger-label').textContent = btn.querySelector('span').textContent;
+    closeTypeMenu();
+    loadConvList();
+  };
+
+  window.msToggleUnreadFilter = function () {
+    unreadOnly = !unreadOnly;
+    document.getElementById('ms-unread-toggle').classList.toggle('active', unreadOnly);
     loadConvList();
   };
 
@@ -251,6 +294,7 @@
   window.msSelectConv = function (convId, convType) {
     if (!convId) return;
     activeConvId = convId;
+    if (window.msCloseConvSearch) window.msCloseConvSearch();   // đóng ô tìm khi đổi hội thoại
 
     // Bỏ khỏi hàng đợi cross-doc nếu vừa mở đúng hội thoại đó
     if (crossDocQueue.length) {
@@ -269,10 +313,18 @@
     document.getElementById('ms-messages').style.display    = 'flex';
     document.getElementById('ms-input-area').style.display  = 'block';
 
+    // Right panel LUÔN mở khi chọn hội thoại (mọi loại DM/nhóm/DOC).
+    // Người dùng vẫn đóng được bằng nút thông tin / nút ✕.
+    _infoVisible = true;
+    var rightEl = document.getElementById('ms-right');
+    if (rightEl) rightEl.style.display = 'flex';
+    var infoBtn = document.getElementById('ms-toggle-info-btn');
+    if (infoBtn) infoBtn.classList.add('active');
+
     // Load dữ liệu
     loadConvHeader(convId, convType);
     loadThread(convId);
-    if (_infoVisible) loadInfoPanel(convId);
+    loadInfoPanel(convId);
 
     // Mark read (không reload lại toàn bộ list ngay, dùng delay)
     nodePost('/read/' + convId + '/' + AUS_ID, {}, function () {
@@ -301,20 +353,31 @@
       var hue     = (convId * 47) % 360;
       var initl   = (d.name || '?').replace(/.*\s/, '').charAt(0).toUpperCase();
       var isGroup = d.type === 'CHANNEL' || (d.type === 'DOC' && (d.member_count || 0) > 2);
+      headerAv.className = isGroup ? 'group' : '';
       headerAv.style.background = 'hsl(' + hue + ',55%,52%)';
-      headerAv.innerHTML = initl;
+
       if (isGroup) {
-        headerAv.classList.add('group');
         headerAv.innerHTML = '<i class="fa fa-users" style="font-size:15px"></i>';
-      } else if (d.img) {
-        headerAv.innerHTML += '<img src="' + d.img + '" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%" onerror="this.remove()">';
+        headerSub.textContent = (d.member_count || 0) + ' thành viên';
+      } else {
+        // Lớp avatar: ảnh (bo tròn theo container) + chữ cái fallback + chấm trạng thái NGOÀI
+        var av = '';
+        if (d.img) {
+          av += '<img src="' + d.img + '" style="width:100%;height:100%;object-fit:cover;'
+              + 'position:absolute;inset:0;border-radius:inherit" onerror="this.remove()">';
+        }
+        av += initl;
+        av += '<span class="ms-presence ' + (d.online ? 'online' : 'offline') + '"></span>';
+        headerAv.innerHTML = av;
+        // Dòng trạng thái: chấm màu + chữ
+        var on = !!d.online;
+        headerSub.innerHTML =
+            '<span style="width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0;'
+          + 'background:' + (on ? '#22C55E' : '#CBD5E1') + '"></span>'
+          + '<span style="color:' + (on ? '#16A34A' : '#94A3B8') + '">'
+          + (on ? 'Đang hoạt động' : 'Không hoạt động') + '</span>';
       }
       headerName.textContent = d.name || 'Hội thoại';
-      if (!isGroup) {
-        headerSub.textContent = d.online ? 'Đang hoạt động' : 'Không hoạt động';
-      } else {
-        headerSub.textContent = (d.member_count || 0) + ' thành viên';
-      }
     });
   }
 
@@ -466,29 +529,16 @@
   // ============================================================
   // INPUT TOOLBAR
   // ============================================================
-  var _attachMenuOpen = false;
-  window.msToggleAttachMenu = function (e) {
-    e.stopPropagation();
-    _attachMenuOpen = !_attachMenuOpen;
-    var menu = document.getElementById('ms-attach-menu');
-    if (menu) menu.classList.toggle('open', _attachMenuOpen);
-  };
-
-  function msCloseAttachMenu() {
-    _attachMenuOpen = false;
-    var menu = document.getElementById('ms-attach-menu');
-    if (menu) menu.classList.remove('open');
-  }
-
   // Nguon cua file dang chon trong P10022710201_UPLOAD_FILE:
   //  'plus'  = bam nut "+" -> gui ngay nhu Zalo, khong qua preview
   //  'paste' = paste vao o nhap -> hien preview, cho bam Gui
   var _pendingFileSource = null;
 
-  // Trigger native APEX File Browse item - cung page, khong qua iframe
-  // APEX render item nay thanh dropzone wrapper, phai click vao dropzone chu khong phai input an ben trong
+  // Nut "+" mo thang APEX File Browse item (1 nut duy nhat cho anh/video/tep tin -
+  // khong con dropdown chia 2 option vi item nhan moi loai file). Cung page, khong
+  // qua iframe. APEX render item thanh dropzone wrapper -> click vao dropzone chu
+  // khong phai input an ben trong.
   window.msTriggerFileUpload = function () {
-    msCloseAttachMenu();
     _pendingFileSource = 'plus';
     var dropzone = document.getElementById('P10022710201_UPLOAD_FILE_DROPZONE');
     if (dropzone) dropzone.click();
@@ -602,63 +652,168 @@
   }
 
   // ============================================================
-  // GUI FILE NGAY (luong "+") - 3 buoc:
-  //  1. Tao dong tin nhan truoc (co the kem caption rong) qua Node /send -> lay msg_id
-  //  2. Goi callback APEX upload that cua ban (TODO: doi ten cho dung callback that)
-  //     voi owner_id = msg_id, owner_table_name = 'CHAT_MESSENGERS' -> luu file, tra fil_id
-  //  3. Bao cac client khac qua Node /attach de cap nhat bong bong tin nhan vua gui
+  // GUI FILE - upload TRUC TIEP qua callback APEX msUploadFile.
+  // Vi sao KHONG goi Node: pkg_upload_file nam trong DB cua APEX, KHONG nam
+  // trong DB ma Node chat-server ket noi -> goi tu Node se PLS-00201. Callback
+  // APEX chay ngay trong DB co package nen goi dung cho.
+  // Item File Browse + apex_application_temp_files RONG trong AJAX (chi submit
+  // form that moi gui bytes) nen KHONG dung duoc -> client tu doc File object,
+  // ma hoa base64, cat chunk vao f01 array gui kem apex.server.process.
+  // Callback ghep base64 -> BLOB -> UploadFileChat -> INSERT CHAT_MESSENGERS
+  // -> COMMIT -> tra response co cac field enrich.
+  // Real-time: callback KHONG tu UTL_HTTP sang Node (may DB khong route toi Node
+  // -> ORA-12535 timeout). Thay vao do BROWSER nhan response roi tu goi Node
+  // /broadcast-message (browser toi duoc Node, dung duong /send text dang chay).
   // ============================================================
+  var FILE_B64_CHUNK = 30000;   // <= 32767 (gioi han phan tu g_f01)
   function msSendFileMessage() {
     if (!activeConvId) return;
     var dropzone = document.getElementById('P10022710201_UPLOAD_FILE_DROPZONE');
     if (!dropzone || !dropzone.classList.contains('has-files')) return;
 
+    var input = document.getElementById('P10022710201_UPLOAD_FILE_input');
+    var files = (input && input.files) ? Array.prototype.slice.call(input.files) : [];
+    if (!files.length) return;
+
     var inputEl = document.getElementById('ms-chat-input');
     var caption = inputEl ? inputEl.innerText.trim() : '';
     if (inputEl) inputEl.innerHTML = '';
+    var replyId = replyTo ? replyTo.id : null;
+    if (replyTo) window.msCancelReply();
 
-    nodePost('/send', {
-      conv_id: activeConvId,
-      aus_id:  AUS_ID,
-      body:    caption,
-      is_file: true
-    }, function (d) {
-      var msgId = d && d.msg && d.msg.msg_id;
-      if (!msgId) {
-        console.error('[Messenger] Tao tin nhan that bai:', d && d.error);
+    // Don dep item APEX ngay (da giu tham chieu File object trong `files`)
+    var apexRemoveBtn = dropzone.querySelector('.a-FileDrop-remove');
+    if (apexRemoveBtn) apexRemoveBtn.click();
+
+    // Gui tuan tu tung file -> moi file 1 tin nhan. Caption + reply gan file dau.
+    (function sendNext(i) {
+      if (i >= files.length) return;
+      uploadOneFile(files[i], i === 0 ? caption : '', i === 0 ? replyId : null,
+                    function () { sendNext(i + 1); });
+    })(0);
+  }
+
+  function uploadOneFile(file, caption, replyId, onDone) {
+    var convId = activeConvId;   // giu lai phong khi user doi conv giua chung
+    var reader = new FileReader();
+    reader.onload = function () {
+      // result = "data:<mime>;base64,<payload>" -> bo prefix, lay base64 thuan
+      var dataUrl = reader.result || '';
+      var comma   = dataUrl.indexOf(',');
+      var b64     = comma >= 0 ? dataUrl.substring(comma + 1) : '';
+      if (!b64) {
+        console.error('[Messenger] Khong doc duoc file:', file.name);
+        if (onDone) onDone();
         return;
       }
 
-      // TODO: doi 'msUploadAttachment' thanh dung ten callback upload file ban da co
-      apexCall('msUploadAttachment', { x01: msgId }, 'json', function (r) {
-        if (!r || r.error) {
-          console.error('[Messenger] Upload file that bai:', r && r.error);
-          return;
-        }
-        nodePost('/attach', {
-          conv_id:   activeConvId,
-          msg_id:    msgId,
-          fil_id:    r.fil_id,
-          file_name: r.file_name,
-          mime_type: r.mime_type,
-          file_size: r.file_size
-        });
-        refreshThread(activeConvId);
-        loadConvList();
-      });
+      // Cat base64 thanh chunk <= 30000 ky tu -> mang f01
+      var chunks = [];
+      for (var p = 0; p < b64.length; p += FILE_B64_CHUNK) {
+        chunks.push(b64.substring(p, p + FILE_B64_CHUNK));
+      }
 
-      // Don dep item APEX, san sang cho lan chon file tiep theo
-      var apexRemoveBtn = dropzone.querySelector('.a-FileDrop-remove');
-      if (apexRemoveBtn) apexRemoveBtn.click();
-    });
+      // Goi thang apex.server.process (khong qua apexCall) de onDone luon chay
+      // ke ca khi loi transport -> khong ket vong gui tuan tu nhieu file.
+      apex.server.process('msUploadFile', {
+        f01: chunks,
+        x01: convId,
+        x02: file.name,
+        x03: caption || '',
+        x04: replyId || ''
+      }, {
+        pageId:   PAGE_ID,
+        dataType: 'json',
+        success: function (r) {
+          if (!r || r.error || r.state !== 'success') {
+            console.error('[Messenger] Upload file that bai:',
+              r && (r.error || r.message || JSON.stringify(r)));
+          } else {
+            refreshThread(convId);
+            loadConvList();
+            // DB khong route toi Node duoc (ORA-12535) -> browser tu goi Node
+            // phat SSE cho cac thanh vien khac. Node /broadcast-message CHI fan-out
+            // (khong dung DB) va da loai tru nguoi gui qua aus_id.
+            nodePost('/broadcast-message', {
+              conv_id:         r.conv_id,
+              msg_id:          r.msg_id,
+              aus_id:          r.aus_id,
+              from_name:       r.from_name,
+              body:            r.body,
+              fil_id:          r.fil_id,
+              file_name:       r.file_name,
+              file_disp_name:  r.file_disp_name,
+              reply_to_msg_id: r.reply_to_msg_id,
+              doc_type:        r.doc_type,
+              doc_no:          r.doc_no,
+              conv_type:       r.conv_type,
+              conv_name:       r.conv_name
+            });
+          }
+          if (onDone) onDone();
+        },
+        error: function (xhr) {
+          console.error('[Messenger] msUploadFile error:', xhr.status, xhr.responseText);
+          if (onDone) onDone();
+        }
+      });
+    };
+    reader.onerror = function () {
+      console.error('[Messenger] Loi doc file:', file.name);
+      if (onDone) onDone();
+    };
+    reader.readAsDataURL(file);
   }
 
+  var MS_EMOJI_DATA = {
+    'Thuong dung': ['😀','😂','🥹','😊','😍','🤔','😅','🤗','😎','🥳','😭','😤','🙄','😴','🤩','🫠'],
+    'Phan ung':    ['❤️','👍','👎','👏','🙏','🔥','✅','❌','⚠️','💯','✨','🎉','🎊','💪','🫡','👀'],
+    'Cong viec':   ['📎','📌','🔗','📋','💡','🔔','📢','📣','📝','📊','📈','🗓️','⏰','🏆','💼','🔑'],
+  };
   var _emojiPickerOpen = false;
   window.msToggleEmojiPicker = function (e) {
     e.stopPropagation();
     _emojiPickerOpen = !_emojiPickerOpen;
     var picker = document.getElementById('ms-emoji-picker');
     if (picker) picker.classList.toggle('open', _emojiPickerOpen);
+    if (_emojiPickerOpen) {
+      msRenderEmojiGrid();
+      setTimeout(function () {
+        var inp = document.getElementById('ms-emoji-search-inp');
+        if (inp) inp.focus();
+      }, 50);
+    }
+  };
+  window.msFilterEmoji = function (q) { msRenderEmojiGrid(q); };
+  function msRenderEmojiGrid(q) {
+    var wrap = document.getElementById('ms-emoji-grid-wrap');
+    if (!wrap) return;
+    var query = (q || '').toLowerCase();
+    var html = '';
+    for (var cat in MS_EMOJI_DATA) {
+      var emojis = MS_EMOJI_DATA[cat].filter(function (em) { return !query || em.includes(query); });
+      if (!emojis.length) continue;
+      html += '<div class="ms-emoji-cat-label">' + cat + '</div><div class="ms-emoji-grid">';
+      emojis.forEach(function (em) {
+        html += '<button type="button" class="ms-emoji-btn" onclick="msInsertEmoji(\'' + em + '\')">' + em + '</button>';
+      });
+      html += '</div>';
+    }
+    wrap.innerHTML = html || '<div style="padding:16px;text-align:center;color:#94A3B8;font-size:12px;">Khong tim thay emoji</div>';
+  }
+  window.msInsertEmoji = function (em) {
+    var input = document.getElementById('ms-chat-input');
+    if (!input) return;
+    input.focus();
+    var sel = window.getSelection();
+    if (sel && sel.rangeCount) {
+      var range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(document.createTextNode(em));
+      range.collapse(false);
+    } else {
+      input.textContent += em;
+    }
   };
 
   var _fmtToolbarTimer = null;
@@ -972,6 +1127,63 @@
   };
 
   // ============================================================
+  // TÌM KIẾM TIN NHẮN TRONG HỘI THOẠI (#ms-msgsearch)
+  // ============================================================
+  var _csConvId = null;
+  var _csTimer  = null;
+
+  window.msOpenConvSearch = function (convId) {
+    _csConvId = convId || activeConvId;
+    if (!_csConvId) return;
+    var box = document.getElementById('ms-msgsearch');
+    if (box) box.style.display = 'block';
+    var sbtn = document.getElementById('ms-header-search-btn');
+    if (sbtn) sbtn.classList.add('active');
+    var res = document.getElementById('ms-cs-results'); if (res) res.innerHTML = '';
+    var inp = document.getElementById('ms-cs-input');
+    if (inp) { inp.value = ''; setTimeout(function () { inp.focus(); }, 60); }
+  };
+
+  window.msCloseConvSearch = function () {
+    clearTimeout(_csTimer);
+    var box = document.getElementById('ms-msgsearch');
+    if (box) box.style.display = 'none';
+    var sbtn = document.getElementById('ms-header-search-btn');
+    if (sbtn) sbtn.classList.remove('active');
+    var res = document.getElementById('ms-cs-results'); if (res) res.innerHTML = '';
+  };
+
+  // Toggle từ icon tìm kiếm trên header: đang mở thì đóng, chưa thì mở.
+  window.msToggleConvSearch = function () {
+    if (!activeConvId) return;
+    var box = document.getElementById('ms-msgsearch');
+    var isOpen = box && box.style.display !== 'none' && box.style.display !== '';
+    if (isOpen) window.msCloseConvSearch();
+    else        window.msOpenConvSearch(activeConvId);
+  };
+
+  window.msConvSearchInput = function (val) {
+    clearTimeout(_csTimer);
+    var q   = (val || '').trim();
+    var res = document.getElementById('ms-cs-results');
+    if (!res) return;
+    if (q.length < 1) { res.innerHTML = ''; return; }
+    _csTimer = setTimeout(function () {
+      apexCall('msSearchMsgsHtml', { x01: _csConvId, x02: q }, 'text', function (html) {
+        res.innerHTML = (html && html.trim())
+          ? html
+          : '<div class="ms-cs-empty">Không tìm thấy tin nhắn nào</div>';
+      });
+    }, 280);
+  };
+
+  // Click 1 kết quả: đóng ô tìm + cuộn tới tin (nếu tin nằm trong thread đã tải).
+  window.msJumpFromSearch = function (msgId) {
+    msCloseConvSearch();
+    msJumpToMsg(msgId);
+  };
+
+  // ============================================================
   // RIGHT PANEL (Info)
   // ============================================================
   window.msToggleInfo = function () {
@@ -1008,6 +1220,8 @@
 
   // S1 → S2: mở màn soạn tin hợp nhất (recipient: DM + nhóm)
   window.msOpenNewConv = function () {
+    _composeMode = 'new';
+    _addTargetConv = null;
     selectedMembers = [];
     _memberMeta = {};
     var s = document.getElementById('ms-s2-search'); if (s) s.value = '';
@@ -1020,6 +1234,15 @@
       var el = document.getElementById('ms-s2-search');
       if (el) el.focus();
     }, 320);
+  };
+
+  // Mở màn soạn tin ở chế độ "thêm thành viên vào nhóm sẵn có" (nút Thêm TV ở right panel).
+  // Dùng lại S2 nhưng submit gọi callback msAddMembers thay vì /create.
+  window.msOpenAddMembers = function (convId) {
+    msOpenNewConv();                 // reset sạch màn soạn + slide S2
+    _composeMode = 'add';
+    _addTargetConv = convId || activeConvId;
+    msUpdateComposeBtn();            // đổi nhãn nút + ẩn ô tên nhóm
   };
 
   // S2 → S1: đóng về danh sách (1 thao tác — nút ✕ hoặc Esc)
@@ -1095,6 +1318,14 @@
     var n        = selectedMembers.length;
     var btn      = document.getElementById('ms-compose-action');
     var nameWrap = document.getElementById('ms-compose-name-wrap');
+    // Chế độ "thêm TV vào nhóm": không có ô tên nhóm, nút bật khi chọn ≥1 người.
+    if (_composeMode === 'add') {
+      if (nameWrap) nameWrap.classList.remove('visible');
+      if (!btn) return;
+      btn.disabled = (n === 0);
+      btn.textContent = 'Thêm vào nhóm';
+      return;
+    }
     if (nameWrap) nameWrap.classList.toggle('visible', n >= 2);
     if (!btn) return;
     if (n >= 2)      { btn.disabled = false; btn.textContent = 'Tạo nhóm'; }
@@ -1115,6 +1346,31 @@
   window.msComposeSubmit = function () {
     var n = selectedMembers.length;
     if (n === 0) return;
+
+    // Chế độ thêm thành viên vào nhóm sẵn có
+    if (_composeMode === 'add') {
+      var target = _addTargetConv;
+      var btnA = document.getElementById('ms-compose-action');
+      if (btnA) { btnA.disabled = true; btnA.textContent = 'Đang thêm...'; }
+      apexCall('msAddMembers',
+        { x01: target, x02: JSON.stringify(selectedMembers) }, 'json',
+        function (d) {
+          if (d && d.state === 'success') {
+            _composeMode = 'new'; _addTargetConv = null;
+            lpSlideTo(1);
+            loadConvList();
+            if (activeConvId == target) {
+              loadThread(target);
+              if (_infoVisible) loadInfoPanel(target);
+            }
+          } else {
+            if (btnA) { btnA.disabled = false; btnA.textContent = 'Thêm vào nhóm'; }
+            alert('Lỗi thêm thành viên: ' + ((d && d.error) || 'không rõ'));
+          }
+        });
+      return;
+    }
+
     if (n === 1) { msCreateDM(selectedMembers[0]); return; }
 
     // ≥2 người → nhóm. Tên tùy chọn; để trống thì auto-sinh từ tên thành viên.
@@ -1367,11 +1623,6 @@
       var bar = document.getElementById('ms-react-bar');
       if (_reactBarOpen && bar && !bar.contains(e.target) &&
           !e.target.closest('[onclick^="msOpenReactBar"]')) msCloseReactBar();
-      if (_attachMenuOpen && !e.target.closest('.ms-attach-menu-wrap')) {
-        _attachMenuOpen = false;
-        var am = document.getElementById('ms-attach-menu');
-        if (am) am.classList.remove('open');
-      }
       if (_emojiPickerOpen && !e.target.closest('.ms-emoji-picker-wrap')) {
         _emojiPickerOpen = false;
         var ep = document.getElementById('ms-emoji-picker');
@@ -1391,20 +1642,11 @@
     var msgsEl = document.getElementById('ms-messages');
     if (msgsEl) msgsEl.addEventListener('scroll', msCloseReactBar);
 
-    // Filter chips
-    var filterRow = document.getElementById('ms-filter-row');
-    if (filterRow) {
-      filterRow.addEventListener('click', function (e) {
-        var chip = e.target.closest('.ms-filter-chip');
-        if (!chip) return;
-        activeFilter = chip.dataset.filter;
-        document.querySelectorAll('.ms-filter-chip').forEach(function (c) {
-          c.classList.remove('active');
-        });
-        chip.classList.add('active');
-        loadConvList();
-      });
-    }
+    // Filter: dong menu dropdown khi click ra ngoai
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('#ms-type-select')) return;
+      closeTypeMenu();
+    });
 
     // Toggle info
     var infoBtn = document.getElementById('ms-toggle-info-btn');

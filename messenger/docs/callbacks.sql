@@ -51,11 +51,17 @@ BEGIN
     HTP.p('{"error":"user_not_found"}'); RETURN;
   END;
 
+  -- co_id/oun_id/user_name: global APEX cần cho upload file qua Node
+  -- (Node gọi pkg_upload_file.UploadFileChat cần 3 tham số này). Client cache
+  -- lại lúc init rồi gửi kèm khi POST /api/chat/upload-send.
   HTP.p(JSON_OBJECT(
     'aus_id'    VALUE l_aus_id,
     'username'  VALUE :APP_USER,
     'full_name' VALUE l_name,
-    'img'       VALUE l_img
+    'img'       VALUE l_img,
+    'co_id'     VALUE TO_CHAR(:G_CO_ID),
+    'oun_id'    VALUE TO_CHAR(:G_OUN_ID_INS),
+    'user_name' VALUE :G_USER_NAME
     ABSENT ON NULL
   ));
 EXCEPTION WHEN OTHERS THEN
@@ -66,7 +72,7 @@ END;
 -- ============================================================
 -- 2. msConvListHtml
 --    Trả HTML danh sách hội thoại của user.
---    x01=filter (ALL/UNREAD/GROUP) | x02=search text
+--    x01=filter loại (ALL/DM/GROUP/DOC) | x02=search text
 --    x03=scope (DOC/ALL) | x04=doc_type | x05=doc_no
 --      - scope=DOC: CHỈ hiện hội thoại có doc_type=x04 AND doc_no=x05
 --        (1 chứng từ có thể có NHIỀU hội thoại — DM lẫn nhóm)
@@ -74,6 +80,10 @@ END;
 --    x06='1': khi scope=ALL và có entryDoc (modal mở từ 1 chứng từ) — thêm
 --      section "Đang xem" ghim hội thoại của chứng từ đó lên đầu danh sách
 --      (dùng x04/x05 làm chứng từ "đang xem"). '0' hoặc trống = bỏ qua.
+--    x07='1': toggle "Chưa đọc" — kết hợp AND với x01 (loại), KHÔNG loại trừ
+--      nhau (vd loại=GROUP + chưa đọc=1 → nhóm có tin chưa đọc). x01 không
+--      còn nhận giá trị UNREAD (2 chip cũ gộp lại độc lập, xem messenger.html
+--      filter dropdown + toggle).
 -- ============================================================
 DECLARE
   l_aus_id        NUMBER;
@@ -83,8 +93,8 @@ DECLARE
   l_doc_type      VARCHAR2(30)  := NULLIF(TRIM(apex_application.g_x04), '');
   l_doc_no        VARCHAR2(60)  := NULLIF(TRIM(apex_application.g_x05), '');
   l_viewing_flag  VARCHAR2(1)   := NVL(apex_application.g_x06, '0');
+  l_unread_only   VARCHAR2(1)   := NVL(apex_application.g_x07, '0');
   l_online_cutoff TIMESTAMP     := SYSTIMESTAMP - INTERVAL '35' SECOND;
-  l_last_type     VARCHAR2(20)  := '~~INIT~~';
 BEGIN
   OWA_UTIL.MIME_HEADER('text/html', TRUE, 'UTF-8');
 
@@ -176,11 +186,17 @@ BEGIN
       WHERE NVL(p.is_hidden, 0) = 0
         -- Scope=DOC: chỉ hội thoại của ĐÚNG chứng từ đang xem (1 chứng từ có thể nhiều hội thoại)
         AND (l_scope != 'DOC' OR (c.doc_type = l_doc_type AND c.doc_no = l_doc_no))
-        AND (l_filter != 'UNREAD' OR
+        -- Filter theo loại: ALL (tất cả) / DM (cá nhân) / GROUP (nhóm chung=CHANNEL)
+        -- / DOC (theo chứng từ)
+        AND (l_filter = 'ALL'
+             OR (l_filter = 'DM'    AND c.conv_type = 'DM')
+             OR (l_filter = 'GROUP' AND c.conv_type = 'CHANNEL')
+             OR (l_filter = 'DOC'   AND c.conv_type = 'DOC'))
+        -- Toggle "Chưa đọc" — độc lập với filter loại, kết hợp AND
+        AND (l_unread_only != '1' OR
              (SELECT COUNT(*) FROM CHAT_MESSENGERS m
               WHERE m.conv_id = c.conv_id AND m.delete_date IS NULL
                 AND m.msg_id > NVL(p.last_read_msg_id,0)) > 0)
-        AND (l_filter != 'GROUP' OR c.conv_type = 'CHANNEL')
         AND (l_search IS NULL
              OR LOWER(NVL(c.name,''))             LIKE '%'||l_search||'%'
              OR LOWER(NVL(c.last_msg_preview,'')) LIKE '%'||l_search||'%'
@@ -210,26 +226,9 @@ BEGIN
     BEGIN
       IF NVL(l_initl,'') = '' THEN l_initl := '?'; END IF;
 
-      -- Section label ("Đang xem" đứng trước nếu có, rồi Ghim, sau đó DM / Nhóm / Theo chứng từ)
-      DECLARE
-        l_sect VARCHAR2(20) := CASE WHEN conv.is_viewing = 1 THEN 'VIEWING'
-                                     WHEN conv.is_pinned  = 1 THEN 'PIN'
-                                     ELSE conv.conv_type END;
-      BEGIN
-        IF l_sect != l_last_type THEN
-          l_last_type := l_sect;
-          HTP.p('<div class="ms-section-label'
-                || CASE WHEN l_sect = 'VIEWING' THEN ' ms-viewing-label' END || '">'
-                || CASE l_sect
-                     WHEN 'VIEWING' THEN 'Đang xem: ' || HTF.ESCAPE_SC(l_doc_no)
-                     WHEN 'PIN'     THEN 'Ghim'
-                     WHEN 'DM'      THEN 'Tin nhắn trực tiếp'
-                     WHEN 'DOC'     THEN 'Theo chứng từ'
-                     ELSE 'Nhóm'
-                   END
-                || '</div>');
-        END IF;
-      END;
+      -- Danh sách phẳng, sắp theo thời gian (ORDER BY ... last_msg_date DESC).
+      -- KHÔNG còn chia section: hội thoại "Đang xem" + đã ghim vẫn nổi lên đầu
+      -- nhờ is_viewing/is_pinned trong ORDER BY; dấu ghim hiển thị ngay trên item.
 
       -- Conv item classes
       l_cls := 'ms-conv-item'
@@ -263,6 +262,9 @@ BEGIN
       HTP.p('  <div class="ms-ci-body">');
       HTP.p('    <div class="ms-ci-row1">');
       HTP.p('      <span class="ms-ci-name">' || HTF.ESCAPE_SC(l_name) || '</span>');
+      IF conv.is_pinned = 1 THEN
+        HTP.p('      <i class="fa fa-thumbtack ms-ci-pin" title="Đã ghim"></i>');
+      END IF;
       HTP.p('      <span class="ms-ci-time">' || NVL(conv.display_time,'') || '</span>');
       HTP.p('    </div>');
       IF conv.conv_type = 'DOC' THEN
@@ -272,7 +274,10 @@ BEGIN
       HTP.p('      <span class="ms-ci-preview">'
             || HTF.ESCAPE_SC(SUBSTR(NVL(conv.last_msg_preview,''),1,55)) || '</span>');
       IF l_unread THEN
-        HTP.p('      <span class="ms-ci-badge">' || conv.unread_count || '</span>');
+        HTP.p('      <span class="ms-ci-badge">'
+              || CASE WHEN conv.unread_count > 99 THEN '99+'
+                      ELSE TO_CHAR(conv.unread_count) END
+              || '</span>');
       END IF;
       HTP.p('    </div>');
       HTP.p('  </div>');
@@ -342,10 +347,14 @@ BEGIN
       SELECT p2.aus_id INTO l_partner_id FROM CHAT_PARTICIPANTS p2
       WHERE p2.conv_id = l_conv_id AND p2.aus_id != l_aus_id FETCH FIRST 1 ROW ONLY;
 
-      SELECT CASE WHEN last_seen >= l_online_cutoff THEN 1 ELSE 0 END
+      -- Online: dùng MAX (aggregate) → LUÔN trả 1 dòng, KHÔNG ném NO_DATA_FOUND
+      -- khi partner chưa có bản ghi presence (offline). Trước đây lỗi ở đây
+      -- nhảy ra EXCEPTION làm câu lấy avatar phía dưới bị bỏ qua → mất ảnh khi offline.
+      SELECT NVL(MAX(CASE WHEN last_seen >= l_online_cutoff THEN 1 ELSE 0 END), 0)
       INTO l_online FROM CHAT_USER_ONLINE WHERE aus_id = l_partner_id;
 
-      SELECT vf.v_file_name INTO l_img
+      -- Avatar: cũng dùng MAX để offline vẫn lấy được ảnh (độc lập với presence)
+      SELECT MAX(vf.v_file_name) INTO l_img
       FROM APP_USERS u JOIN v_employees_v6 vf ON vf.emp_id = u.emp_id
       WHERE u.aus_id = l_partner_id;
     EXCEPTION WHEN NO_DATA_FOUND THEN NULL;
@@ -380,6 +389,8 @@ DECLARE
   l_prev_from NUMBER       := NULL;   -- from_aus_id của tin liền trước
   l_prev_dt   DATE         := NULL;   -- thời điểm tin liền trước
   l_new_grp   BOOLEAN;                -- tin hiện tại có bắt đầu nhóm mới không
+  -- FILES.file_name LÀ đường dẫn tương đối đầy đủ (vd /i/FILE_UPLOAD/.../383.90681)
+  -- → dùng thẳng làm href, KHÔNG ghép tiền tố. Tên + đuôi gốc nằm ở cột FILES.name.
 BEGIN
   OWA_UTIL.MIME_HEADER('text/html', TRUE, 'UTF-8');
 
@@ -413,13 +424,19 @@ BEGIN
         CASE WHEN qm.delete_date IS NOT NULL THEN '[Tin nhắn đã bị xóa]' ELSE qm.body END AS reply_body,
         REGEXP_REPLACE(NVL(qe.full_name,''),'[[:cntrl:]]','') AS reply_from_name,
         (SELECT COUNT(*) FROM CHAT_PINNED_MSGS pp
-         WHERE pp.conv_id = m.conv_id AND pp.msg_id = m.msg_id) AS is_pinned
+         WHERE pp.conv_id = m.conv_id AND pp.msg_id = m.msg_id) AS is_pinned,
+        m.fil_id,
+        f.file_name,                       -- đường dẫn tương đối đầy đủ (href)
+        f.name        AS file_disp_name,    -- tên gốc còn đuôi (hiển thị + suy đuôi)
+        f.file_size,
+        LOWER(REGEXP_SUBSTR(f.name, '\.([^.]+)$', 1, 1, NULL, 1)) AS file_ext
       FROM   CHAT_MESSENGERS m
       JOIN   APP_USERS       u  ON u.aus_id  = m.from_aus_id
       JOIN   EMPLOYEES       e  ON e.emp_id  = u.emp_id
       LEFT JOIN CHAT_MESSENGERS qm ON qm.msg_id = m.reply_to_msg_id
       LEFT JOIN APP_USERS    qu  ON qu.aus_id = qm.from_aus_id
       LEFT JOIN EMPLOYEES    qe  ON qe.emp_id = qu.emp_id
+      LEFT JOIN FILES        f   ON f.fil_id  = m.fil_id
       WHERE  m.conv_id = l_conv_id
       ORDER  BY m.msg_id ASC
       FETCH FIRST 50 ROWS ONLY
@@ -506,10 +523,82 @@ BEGIN
       IF msg.delete_date IS NOT NULL THEN
         HTP.p('    <div class="ms-msg-bubble deleted">[Tin nhắn đã bị thu hồi]</div>');
       ELSE
-        l_body_esc := REPLACE(REPLACE(
-          REPLACE(REPLACE(HTF.ESCAPE_SC(NVL(msg.body,'')), '&#38;', '&amp;'),
-          '&#60;', '&lt;'), CHR(13), ''), CHR(10), '<br>');
-        HTP.p('    <div class="ms-msg-bubble">' || l_body_esc || '</div>');
+        -- Caption (rỗng nếu tin chỉ có file, không có chữ kèm theo)
+        IF msg.body IS NOT NULL THEN
+          l_body_esc := REPLACE(REPLACE(
+            REPLACE(REPLACE(HTF.ESCAPE_SC(msg.body), '&#38;', '&amp;'),
+            '&#60;', '&lt;'), CHR(13), ''), CHR(10), '<br>');
+          HTP.p('    <div class="ms-msg-bubble">' || l_body_esc || '</div>');
+        END IF;
+
+        -- File/ảnh đính kèm (fil_id NOT NULL): ảnh dùng .img-card, file khác dùng .file-card
+        IF msg.fil_id IS NOT NULL THEN
+          DECLARE
+            l_url        VARCHAR2(500) := msg.file_name;  -- file_name đã là đường dẫn đầy đủ
+            l_is_image   BOOLEAN := msg.file_ext IN ('jpg','jpeg','png','gif','webp','bmp','svg');
+            l_size_txt   VARCHAR2(30);
+            -- Bảng màu/nhãn theo đuôi file — ĐỒNG BỘ với FILE_TYPE_STYLES trong
+            -- messenger.fgvd.js (dùng cho preview chip lúc soạn tin). Đổi 1 bên
+            -- phải đổi bên kia, không thì icon chip lúc soạn và icon trong tin
+            -- nhắn đã gửi sẽ lệch màu nhau.
+            l_icon_bg    VARCHAR2(10);
+            l_icon_color VARCHAR2(10);
+            l_icon_label VARCHAR2(4);
+          BEGIN
+            IF msg.file_size IS NULL THEN
+              l_size_txt := '';
+            ELSIF msg.file_size < 1024*1024 THEN
+              l_size_txt := ROUND(msg.file_size/1024) || ' KB';
+            ELSE
+              l_size_txt := ROUND(msg.file_size/1024/1024, 1) || ' MB';
+            END IF;
+
+            CASE msg.file_ext
+              WHEN 'doc'  THEN l_icon_bg := '#EFF6FF'; l_icon_color := '#2563EB'; l_icon_label := 'DOC';
+              WHEN 'docx' THEN l_icon_bg := '#EFF6FF'; l_icon_color := '#2563EB'; l_icon_label := 'DOC';
+              WHEN 'xls'  THEN l_icon_bg := '#ECFDF5'; l_icon_color := '#15803D'; l_icon_label := 'XLS';
+              WHEN 'xlsx' THEN l_icon_bg := '#ECFDF5'; l_icon_color := '#15803D'; l_icon_label := 'XLS';
+              WHEN 'csv'  THEN l_icon_bg := '#ECFDF5'; l_icon_color := '#15803D'; l_icon_label := 'CSV';
+              WHEN 'ppt'  THEN l_icon_bg := '#FFF7ED'; l_icon_color := '#C2410C'; l_icon_label := 'PPT';
+              WHEN 'pptx' THEN l_icon_bg := '#FFF7ED'; l_icon_color := '#C2410C'; l_icon_label := 'PPT';
+              WHEN 'pdf'  THEN l_icon_bg := '#FEF2F2'; l_icon_color := '#DC2626'; l_icon_label := 'PDF';
+              WHEN 'zip'  THEN l_icon_bg := '#FFFBEB'; l_icon_color := '#B45309'; l_icon_label := 'ZIP';
+              WHEN 'rar'  THEN l_icon_bg := '#FFFBEB'; l_icon_color := '#B45309'; l_icon_label := 'RAR';
+              WHEN '7z'   THEN l_icon_bg := '#FFFBEB'; l_icon_color := '#B45309'; l_icon_label := '7Z';
+              ELSE                  l_icon_bg := '#F1F5F9'; l_icon_color := '#475569'; l_icon_label := NULL;
+            END CASE;
+
+            IF l_is_image THEN
+              -- TODO: hiện đang mở ảnh tab mới; nếu muốn lightbox in-app, cần thêm
+              -- #ms-lightbox overlay + JS msOpenLightbox() vào messenger.fgvd.js trước
+              HTP.p('    <a class="img-card" href="' || HTF.ESCAPE_SC(l_url) || '" target="_blank">');
+              HTP.p('      <img src="' || HTF.ESCAPE_SC(l_url) || '" alt="'
+                    || HTF.ESCAPE_SC(NVL(msg.file_disp_name,'')) || '" loading="lazy">');
+              HTP.p('    </a>');
+            ELSE
+              HTP.p('    <a class="file-card" href="' || HTF.ESCAPE_SC(l_url)
+                    || '" download="' || HTF.ESCAPE_SC(NVL(msg.file_disp_name,''))
+                    || '" target="_blank" style="text-decoration:none">');
+              IF l_icon_label IS NOT NULL THEN
+                -- Có nhãn đuôi rút gọn (DOC/XLS/PDF...) → hiện badge chữ, không cần SVG
+                HTP.p('      <div class="file-icon file-icon--label" style="background:'
+                      || l_icon_bg || ';color:' || l_icon_color || '">' || l_icon_label || '</div>');
+              ELSE
+                -- Đuôi lạ / không xác định → icon trang giấy chung, màu xám trung tính
+                HTP.p('      <div class="file-icon" style="background:' || l_icon_bg || '">'
+                      || '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="' || l_icon_color
+                      || '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+                      || '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>');
+              END IF;
+              HTP.p('      <div style="flex:1;min-width:0">');
+              HTP.p('        <div style="color:#1E293B;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'
+                    || HTF.ESCAPE_SC(NVL(msg.file_disp_name,'Tệp đính kèm')) || '</div>');
+              HTP.p('        <div style="color:#94A3B8;font-size:11px">' || l_size_txt || '</div>');
+              HTP.p('      </div>');
+              HTP.p('    </a>');
+            END IF;
+          END;
+        END IF;
       END IF;
 
       -- Reactions (chip tổng hợp theo emoji)
@@ -726,6 +815,115 @@ DECLARE
   l_partner_hue   VARCHAR2(10);
   l_partner_av    VARCHAR2(4);
   l_partner_pres  VARCHAR2(10);
+
+  -- ── Ảnh & Video + File đính kèm chia sẻ trong hội thoại (dùng chung DM/CHANNEL) ──
+  -- Bảng màu icon theo đuôi file: ĐỒNG BỘ với FILE_TYPE_STYLES (messenger.fgvd.js,
+  -- preview chip lúc soạn tin) và CASE trong msMsgThreadHtml (mục 4, icon file-card
+  -- trong tin nhắn). Đổi 1 nơi phải đổi cả 3, không thì icon lệch màu giữa 3 chỗ.
+  PROCEDURE render_shared_media(p_conv_id NUMBER) IS
+    l_img_total  NUMBER := 0;
+    l_file_total NUMBER := 0;
+    l_i          NUMBER := 0;
+    l_bg         VARCHAR2(10);
+    l_color      VARCHAR2(10);
+    l_label      VARCHAR2(4);
+    l_size_txt   VARCHAR2(30);
+  BEGIN
+    SELECT COUNT(*) INTO l_img_total
+    FROM CHAT_MESSENGERS m JOIN FILES f ON f.fil_id = m.fil_id
+    WHERE m.conv_id = p_conv_id AND m.delete_date IS NULL
+      AND LOWER(REGEXP_SUBSTR(f.name,'\.([^.]+)$',1,1,NULL,1)) IN ('jpg','jpeg','png','gif','webp','bmp','svg');
+
+    SELECT COUNT(*) INTO l_file_total
+    FROM CHAT_MESSENGERS m JOIN FILES f ON f.fil_id = m.fil_id
+    WHERE m.conv_id = p_conv_id AND m.delete_date IS NULL
+      AND LOWER(REGEXP_SUBSTR(f.name,'\.([^.]+)$',1,1,NULL,1)) NOT IN ('jpg','jpeg','png','gif','webp','bmp','svg');
+
+    -- ── Ảnh & Video: lưới 3 cột, tối đa 6 ô, ô thứ 6 phủ "+N còn lại" ──
+    IF l_img_total > 0 THEN
+      HTP.p('<div class="ms-info-section">');
+      HTP.p('  <div class="ms-info-section-title"><span>Ảnh &amp; Video (' || l_img_total || ')</span></div>');
+      HTP.p('  <div class="ms-media-grid">');
+      l_i := 0;
+      FOR im IN (
+        SELECT file_name FROM (
+          SELECT f.file_name
+          FROM CHAT_MESSENGERS m JOIN FILES f ON f.fil_id = m.fil_id
+          WHERE m.conv_id = p_conv_id AND m.delete_date IS NULL
+            AND LOWER(REGEXP_SUBSTR(f.name,'\.([^.]+)$',1,1,NULL,1)) IN ('jpg','jpeg','png','gif','webp','bmp','svg')
+          ORDER BY m.create_date DESC
+        ) WHERE ROWNUM <= 6
+      ) LOOP
+        l_i := l_i + 1;
+        HTP.p('    <a class="ms-media-thumb" href="' || HTF.ESCAPE_SC(im.file_name) || '" target="_blank">');
+        HTP.p('      <img src="' || HTF.ESCAPE_SC(im.file_name) || '" alt="" loading="lazy">');
+        IF l_i = 6 AND l_img_total > 6 THEN
+          HTP.p('      <div class="ms-media-more">+' || (l_img_total - 5) || '</div>');
+        END IF;
+        HTP.p('    </a>');
+      END LOOP;
+      HTP.p('  </div>');
+      HTP.p('</div>');
+    END IF;
+
+    -- ── File đính kèm: icon màu theo đuôi, tên + dung lượng + nút tải ──
+    IF l_file_total > 0 THEN
+      HTP.p('<div class="ms-info-section">');
+      HTP.p('  <div class="ms-info-section-title"><span>File đính kèm (' || l_file_total || ')</span></div>');
+      FOR fl IN (
+        SELECT * FROM (
+          SELECT f.file_name, f.name AS disp_name, f.file_size,
+                 LOWER(REGEXP_SUBSTR(f.name,'\.([^.]+)$',1,1,NULL,1)) AS ext
+          FROM CHAT_MESSENGERS m JOIN FILES f ON f.fil_id = m.fil_id
+          WHERE m.conv_id = p_conv_id AND m.delete_date IS NULL
+            AND LOWER(REGEXP_SUBSTR(f.name,'\.([^.]+)$',1,1,NULL,1)) NOT IN ('jpg','jpeg','png','gif','webp','bmp','svg')
+          ORDER BY m.create_date DESC
+        ) WHERE ROWNUM <= 10
+      ) LOOP
+        CASE fl.ext
+          WHEN 'doc'  THEN l_bg := '#EFF6FF'; l_color := '#2563EB'; l_label := 'DOC';
+          WHEN 'docx' THEN l_bg := '#EFF6FF'; l_color := '#2563EB'; l_label := 'DOC';
+          WHEN 'xls'  THEN l_bg := '#ECFDF5'; l_color := '#15803D'; l_label := 'XLS';
+          WHEN 'xlsx' THEN l_bg := '#ECFDF5'; l_color := '#15803D'; l_label := 'XLS';
+          WHEN 'csv'  THEN l_bg := '#ECFDF5'; l_color := '#15803D'; l_label := 'CSV';
+          WHEN 'ppt'  THEN l_bg := '#FFF7ED'; l_color := '#C2410C'; l_label := 'PPT';
+          WHEN 'pptx' THEN l_bg := '#FFF7ED'; l_color := '#C2410C'; l_label := 'PPT';
+          WHEN 'pdf'  THEN l_bg := '#FEF2F2'; l_color := '#DC2626'; l_label := 'PDF';
+          WHEN 'zip'  THEN l_bg := '#FFFBEB'; l_color := '#B45309'; l_label := 'ZIP';
+          WHEN 'rar'  THEN l_bg := '#FFFBEB'; l_color := '#B45309'; l_label := 'RAR';
+          WHEN '7z'   THEN l_bg := '#FFFBEB'; l_color := '#B45309'; l_label := '7Z';
+          ELSE                  l_bg := '#F1F5F9'; l_color := '#475569'; l_label := NULL;
+        END CASE;
+
+        IF fl.file_size IS NULL THEN
+          l_size_txt := '';
+        ELSIF fl.file_size < 1024*1024 THEN
+          l_size_txt := ROUND(fl.file_size/1024) || ' KB';
+        ELSE
+          l_size_txt := ROUND(fl.file_size/1024/1024, 1) || ' MB';
+        END IF;
+
+        HTP.p('  <a class="ms-shared-file-row" href="' || HTF.ESCAPE_SC(fl.file_name)
+              || '" download="' || HTF.ESCAPE_SC(NVL(fl.disp_name,'')) || '" target="_blank">');
+        IF l_label IS NOT NULL THEN
+          HTP.p('    <div class="ms-shared-file-icon ms-shared-file-icon--label" style="background:'
+                || l_bg || ';color:' || l_color || '">' || l_label || '</div>');
+        ELSE
+          HTP.p('    <div class="ms-shared-file-icon" style="background:' || l_bg || '">'
+                || '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="' || l_color
+                || '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+                || '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>');
+        END IF;
+        HTP.p('    <div class="ms-shared-file-info">');
+        HTP.p('      <div class="ms-shared-file-name">' || HTF.ESCAPE_SC(NVL(fl.disp_name,'Tệp đính kèm')) || '</div>');
+        HTP.p('      <div class="ms-shared-file-size">' || l_size_txt || '</div>');
+        HTP.p('    </div>');
+        HTP.p('    <div class="ms-shared-file-dl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>');
+        HTP.p('  </a>');
+      END LOOP;
+      HTP.p('</div>');
+    END IF;
+  END render_shared_media;
 BEGIN
   OWA_UTIL.MIME_HEADER('text/html', TRUE, 'UTF-8');
 
@@ -785,26 +983,36 @@ BEGIN
     HTP.p('<div style="display:flex;flex-direction:column;align-items:center;padding:28px 16px 20px;border-bottom:1px solid #F1F5F9;">');
 
     -- Avatar 64px
-    HTP.p('  <div style="width:64px;height:64px;border-radius:50%;'
+    -- Wrapper (không overflow) để chấm trạng thái nằm ngoài, không bị cắt
+    HTP.p('  <div style="position:relative;margin-bottom:12px;flex-shrink:0">');
+    -- Vòng avatar — overflow:hidden chỉ để clip ảnh thành hình tròn
+    HTP.p('    <div style="width:64px;height:64px;border-radius:50%;'
           || 'background:hsl(' || l_partner_hue || ',55%,52%);'
           || 'color:#fff;display:flex;align-items:center;justify-content:center;'
           || 'font-weight:700;font-size:22px;position:relative;overflow:hidden;'
-          || 'margin-bottom:12px;flex-shrink:0">');
+          || 'box-shadow:0 4px 14px rgba(15,23,42,.10)">');
     IF l_partner_img IS NOT NULL THEN
       HTP.p('<img src="' || HTF.ESCAPE_SC(l_partner_img) || '"'
             || ' style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%"'
             || ' onerror="this.remove()">');
     END IF;
     HTP.p(l_partner_av);
-    -- Presence dot
-    HTP.p('    <span style="position:absolute;bottom:3px;right:3px;width:12px;height:12px;'
+    HTP.p('    </div>');
+    -- Chấm trạng thái — nằm NGOÀI vòng avatar
+    HTP.p('    <span style="position:absolute;bottom:3px;right:3px;width:14px;height:14px;'
           || 'border-radius:50%;border:2.5px solid #FAFAFA;'
           || 'background:' || CASE WHEN l_partner_pres='online' THEN '#22C55E' ELSE '#CBD5E1' END || '"></span>');
     HTP.p('  </div>');
 
     -- Tên
-    HTP.p('  <div style="font-weight:700;font-size:15px;color:#0F172A;text-align:center;margin-bottom:4px">'
+    HTP.p('  <div style="font-weight:700;font-size:15px;color:#0F172A;text-align:center;margin-bottom:2px">'
           || HTF.ESCAPE_SC(l_partner_name) || '</div>');
+
+    -- Chức vụ (dòng phụ ngay dưới tên — nhận diện thân thiện hơn)
+    IF l_partner_pos IS NOT NULL AND l_partner_pos != '' THEN
+      HTP.p('  <div style="font-size:12px;color:#64748B;text-align:center;margin-bottom:6px">'
+            || HTF.ESCAPE_SC(l_partner_pos) || '</div>');
+    END IF;
 
     -- Trạng thái online
     HTP.p('  <div style="display:flex;align-items:center;gap:5px;font-size:12px;'
@@ -815,59 +1023,11 @@ BEGIN
     HTP.p('    ' || CASE WHEN l_partner_pres='online' THEN 'Đang hoạt động' ELSE 'Không hoạt động' END);
     HTP.p('  </div>');
 
-    -- Phòng ban (nếu có)
-    IF l_partner_dept IS NOT NULL AND l_partner_dept != '' THEN
-      HTP.p('  <div style="margin-top:6px;font-size:12px;color:#64748B">'
-            || HTF.ESCAPE_SC(l_partner_dept) || '</div>');
-    END IF;
-
-    -- Action buttons
-    HTP.p('  <div class="ms-rp-actions" style="margin-top:16px;">');
-    -- Tắt thông báo
-    HTP.p('    <button type="button" class="ms-rp-action-btn" title="Tắt thông báo">');
-    HTP.p('      <div class="ms-rp-action-icon">');
-    HTP.p('        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>');
-    HTP.p('      </div>');
-    HTP.p('      <span class="ms-rp-action-label">Thông báo</span>');
-    HTP.p('    </button>');
-    -- Tìm kiếm
-    HTP.p('    <button type="button" class="ms-rp-action-btn" title="Tìm kiếm tin nhắn">');
-    HTP.p('      <div class="ms-rp-action-icon">');
-    HTP.p('        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>');
-    HTP.p('      </div>');
-    HTP.p('      <span class="ms-rp-action-label">Tìm kiếm</span>');
-    HTP.p('    </button>');
-    -- Thêm (Khác)
-    HTP.p('    <button type="button" class="ms-rp-action-btn" title="Thêm tùy chọn">');
-    HTP.p('      <div class="ms-rp-action-icon">');
-    HTP.p('        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>');
-    HTP.p('      </div>');
-    HTP.p('      <span class="ms-rp-action-label">Khác</span>');
-    HTP.p('    </button>');
-    HTP.p('  </div>');
-
     HTP.p('</div>');
 
     -- Section Thông tin liên lạc
     HTP.p('<div style="border-top:1px solid #F1F5F9;padding:4px 0;">');
     HTP.p('  <div class="ms-info-section-title">Thông tin liên lạc</div>');
-
-    -- Chức vụ
-    IF l_partner_pos IS NOT NULL AND l_partner_pos != '' THEN
-      HTP.p('  <div style="display:flex;align-items:center;gap:10px;padding:7px 16px;">');
-      HTP.p('    <div style="width:30px;height:30px;border-radius:8px;background:#F1F5F9;'
-            || 'display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#475569">');
-      HTP.p('      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-            || '<rect x="2" y="7" width="20" height="14" rx="2"/>'
-            || '<path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>');
-      HTP.p('    </div>');
-      HTP.p('    <div style="min-width:0">');
-      HTP.p('      <div style="font-size:10.5px;color:#94A3B8">Chức vụ</div>');
-      HTP.p('      <div style="font-size:12.5px;color:#334155;font-weight:500">'
-            || HTF.ESCAPE_SC(l_partner_pos) || '</div>');
-      HTP.p('    </div>');
-      HTP.p('  </div>');
-    END IF;
 
     -- Phòng ban
     IF l_partner_dept IS NOT NULL AND l_partner_dept != '' THEN
@@ -926,6 +1086,8 @@ BEGIN
 
     HTP.p('</div>');
 
+    render_shared_media(l_conv_id);
+
     -- Section Tùy chọn
     HTP.p('<div style="border-top:1px solid #F1F5F9;padding-top:4px;">');
     HTP.p('  <div class="ms-info-section-title" style="margin-bottom:2px">Tùy chọn</div>');
@@ -968,7 +1130,8 @@ BEGIN
       HTP.p('  <div style="width:64px;height:64px;border-radius:18px;'
             || 'background:hsl(' || l_grp_hue || ',55%,52%);'
             || 'color:#fff;display:flex;align-items:center;justify-content:center;'
-            || 'font-weight:700;font-size:22px;margin-bottom:12px;flex-shrink:0">');
+            || 'font-weight:700;font-size:22px;flex-shrink:0;'
+            || 'box-shadow:0 4px 14px rgba(15,23,42,.10);margin-bottom:12px">');
       HTP.p('    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
             || '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>'
             || '<path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>');
@@ -976,30 +1139,6 @@ BEGIN
       HTP.p('  <div style="font-weight:700;font-size:15px;color:#0F172A;text-align:center;margin-bottom:4px">'
             || HTF.ESCAPE_SC(l_conv_name) || '</div>');
       HTP.p('  <div style="font-size:12px;color:#94A3B8">' || l_member_count || ' thành viên</div>');
-
-      -- Action buttons nhóm
-      HTP.p('  <div class="ms-rp-actions" style="margin-top:16px;width:100%">');
-      -- Thêm thành viên
-      HTP.p('    <button type="button" class="ms-rp-action-btn" onclick="msOpenCompose()" title="Thêm thành viên">');
-      HTP.p('      <div class="ms-rp-action-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></div>');
-      HTP.p('      <span class="ms-rp-action-label">Thêm TV</span>');
-      HTP.p('    </button>');
-      -- Tìm kiếm
-      HTP.p('    <button type="button" class="ms-rp-action-btn" title="Tìm kiếm tin nhắn">');
-      HTP.p('      <div class="ms-rp-action-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div>');
-      HTP.p('      <span class="ms-rp-action-label">Tìm kiếm</span>');
-      HTP.p('    </button>');
-      -- Thông báo
-      HTP.p('    <button type="button" class="ms-rp-action-btn" title="Tắt thông báo">');
-      HTP.p('      <div class="ms-rp-action-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>');
-      HTP.p('      <span class="ms-rp-action-label">Thông báo</span>');
-      HTP.p('    </button>');
-      -- Khác
-      HTP.p('    <button type="button" class="ms-rp-action-btn" title="Thêm tùy chọn">');
-      HTP.p('      <div class="ms-rp-action-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></div>');
-      HTP.p('      <span class="ms-rp-action-label">Khác</span>');
-      HTP.p('    </button>');
-      HTP.p('  </div>');
 
       HTP.p('</div>');
     END;
@@ -1063,6 +1202,8 @@ BEGIN
     END LOOP;
 
     HTP.p('</div>');
+
+    render_shared_media(l_conv_id);
 
     -- Section Tùy chọn (CHANNEL)
     HTP.p('<div style="border-top:1px solid #F1F5F9;padding-top:4px;padding-bottom:4px;">');
@@ -1695,4 +1836,610 @@ BEGIN
   END LOOP;
 EXCEPTION WHEN OTHERS THEN
   HTP.p('');
+END;
+
+
+-- ============================================================
+-- 19. msUploadAttachment
+--     CHỈ làm upload file, KHÔNG insert gì vào CHAT_MESSENGERS.
+--     Đây là callback DUY NHẤT được phép tham chiếu :P10022710201_UPLOAD_FILE
+--     — đã xác nhận qua thực tế: tham chiếu item File Browse "Optimized for
+--     Images" từ MỘT callback gộp nhiều việc khác (insert/update/UTL_HTTP)
+--     gây ORA-01403 "ajax_set_session_state" dù đã khai báo pageItems đầy đủ
+--     ở JS. Tách upload ra callback riêng, đơn giản nhất có thể, là cách né
+--     lỗi này — không có lời giải thích chắc chắn từ tài liệu APEX công khai
+--     cho hành vi này, chỉ biết tách ra thì hết lỗi.
+--     Không nhận tham số x01-x03. Trả {fil_id, file_name} hoặc {error}.
+-- ============================================================
+DECLARE
+  l_fil_id    NUMBER(15);
+  l_mess      VARCHAR2(2000);
+  l_file_nm   VARCHAR2(600);
+  -- DIAGNOSTIC: xác nhận item upload có giá trị ở server không + còn file ở
+  -- temp table không, để biết vì sao UploadMultipleFilesChat trả fil_id NULL.
+  -- Item File Browse KHÔNG serialize qua pageItems trong AJAX -> bind
+  -- :P10022710201_UPLOAD_FILE NULL. Tên file (key trong temp table) được client
+  -- gửi qua x05 (string thường). Fallback về bind nếu chạy trong page submit thật.
+  l_item_val  VARCHAR2(4000) := NVL(apex_application.g_x05, :P10022710201_UPLOAD_FILE);
+  l_temp_cnt  NUMBER := 0;
+  l_temp_all  NUMBER := 0;        -- tổng temp file trong session (bất kể tên)
+  l_temp_nms  VARCHAR2(4000);     -- danh sách tên temp file để đối chiếu
+  l_aaf_cnt   NUMBER := 0;        -- apex_application_files (store rộng hơn)
+  l_wff_cnt   NUMBER := 0;        -- wwv_flow_files raw theo filename
+BEGIN
+  OWA_UTIL.MIME_HEADER('application/json', TRUE, 'UTF-8');
+
+  IF :APP_USER IS NULL OR :APP_USER IN ('nobody','NOBODY') THEN
+    HTP.p('{"error":"auth"}'); RETURN;
+  END IF;
+
+  -- Chẩn đoán nơi file thực sự nằm. apex_application_temp_files chỉ show file
+  -- của REQUEST hiện tại; nếu file upload ở 1 request AJAX riêng trước đó thì
+  -- có thể KHÔNG thấy ở đây -> phải đọc wwv_flow_files / cách khác.
+  BEGIN
+    SELECT COUNT(*),
+           LISTAGG(name, ' | ') WITHIN GROUP (ORDER BY name)
+    INTO   l_temp_all, l_temp_nms
+    FROM   apex_application_temp_files;
+  EXCEPTION WHEN OTHERS THEN l_temp_all := -1; l_temp_nms := SQLERRM;
+  END;
+
+  BEGIN
+    SELECT COUNT(*) INTO l_temp_cnt
+    FROM   apex_application_temp_files
+    WHERE  l_item_val IS NOT NULL
+      AND  INSTR(':' || l_item_val || ':', ':' || name || ':') > 0;
+  EXCEPTION WHEN OTHERS THEN l_temp_cnt := -1;
+  END;
+
+  -- Probe store rộng hơn: bytes file có nằm đâu đó server không?
+  BEGIN
+    SELECT COUNT(*) INTO l_aaf_cnt FROM apex_application_files
+    WHERE  l_item_val IS NOT NULL AND name = l_item_val;
+  EXCEPTION WHEN OTHERS THEN l_aaf_cnt := -1;
+  END;
+  BEGIN
+    EXECUTE IMMEDIATE
+      'SELECT COUNT(*) FROM wwv_flow_files WHERE filename = :1 OR name = :1'
+      INTO l_wff_cnt USING l_item_val, l_item_val;
+  EXCEPTION WHEN OTHERS THEN l_wff_cnt := -1;
+  END;
+
+  pkg_upload_file.UploadMultipleFilesChat(
+    p_file_names  => l_item_val,   -- = g_x05 (tên file client gửi), KHÔNG dùng bind
+    p_co_id       => :G_CO_ID,
+    p_oun_id      => :G_OUN_ID_INS,
+    p_module      => '01',
+    p_table       => 'CHAT_MESSENGERS',
+    p_user_name   => :G_USER_NAME,
+    p_id          => NULL,
+    p_total_files => NULL,
+    p_ffo_id      => NULL,
+    p_fil_id      => l_fil_id,
+    p_error       => l_mess);
+
+  IF l_fil_id IS NULL THEN
+    ROLLBACK;
+    -- Trả kèm chẩn đoán: item_val (tên file ở server), temp_cnt (số BLOB temp
+    -- khớp), co_id/oun_id/user_name (các tham số có thể đang NULL), proc_mess.
+    HTP.p(JSON_OBJECT(
+      'error'     VALUE NVL(l_mess,'upload_failed'),
+      'item_val'  VALUE NVL(l_item_val,'(NULL)'),
+      'temp_cnt'  VALUE l_temp_cnt,
+      'temp_all'  VALUE l_temp_all,
+      'temp_nms'  VALUE NVL(l_temp_nms,'(none)'),
+      'aaf_cnt'   VALUE l_aaf_cnt,
+      'wff_cnt'   VALUE l_wff_cnt,
+      'co_id'     VALUE TO_CHAR(:G_CO_ID),
+      'oun_id'    VALUE TO_CHAR(:G_OUN_ID_INS),
+      'user_name' VALUE :G_USER_NAME,
+      'proc_mess' VALUE l_mess
+    ));
+    RETURN;
+  END IF;
+
+  -- UploadMultipleFilesChat KHÔNG tự COMMIT — bắt buộc commit ở đây vì
+  -- msCreateFileMessage chạy ở 1 request/session APEX khác, cần thấy được
+  -- row FILES vừa insert ngay.
+  COMMIT;
+
+  SELECT file_name INTO l_file_nm FROM FILES WHERE fil_id = l_fil_id;
+
+  HTP.p(JSON_OBJECT(
+    'fil_id'    VALUE l_fil_id,
+    'file_name' VALUE l_file_nm
+  ));
+EXCEPTION WHEN OTHERS THEN
+  HTP.p('{"error":"' || REPLACE(SQLERRM,'"','''') || '"}');
+END;
+
+
+-- ============================================================
+-- 20. msCreateFileMessage
+--     Nhận fil_id đã upload xong (từ msUploadAttachment) -> insert
+--     CHAT_MESSENGERS -> gắn ngược owner_id/owner_table_name trên FILES ->
+--     cập nhật last_msg_preview/last_msg_date -> COMMIT -> broadcast
+--     real-time best-effort. KHÔNG tham chiếu bất kỳ page item nào — chỉ
+--     nhận NUMBER/VARCHAR2 thường qua x01-x04, nên an toàn, không lặp lại
+--     lỗi ORA-01403 của mục 19.
+--     x01 = conv_id | x02 = caption (optional) | x03 = reply_to_msg_id
+--     (optional) | x04 = fil_id (bắt buộc, lấy từ msUploadAttachment)
+--
+--     ⚠️ Cần Node.js route mới POST /api/chat/broadcast-message
+--     (chat-server/chat.js, sibling repo C:\greensys\chat-server) — route
+--     CHỈ phát SSE type:'message' (giống enrichment của /send), KHÔNG ghi DB.
+--     Xem code mẫu trong messenger/CLAUDE.md mục "Luồng gửi file thật".
+--
+--     ⚠️ TODO: xác nhận đúng tên sequence msg_id (giả định MSG_SEQ bên dưới,
+--     đổi nếu DDL gốc của CHAT_MESSENGERS dùng tên khác).
+-- ============================================================
+DECLARE
+  l_aus_id    NUMBER;
+  l_conv_id   NUMBER         := TO_NUMBER(NVL(TRIM(apex_application.g_x01),'0'));
+  l_caption   VARCHAR2(4000) := NULLIF(TRIM(apex_application.g_x02), '');
+  l_reply_id  NUMBER         := TO_NUMBER(NULLIF(TRIM(apex_application.g_x03), ''));
+  l_fil_id    NUMBER(15)     := TO_NUMBER(NULLIF(TRIM(apex_application.g_x04), ''));
+  l_member    NUMBER         := 0;
+  l_fil_exist NUMBER         := 0;
+  l_msg_id    NUMBER;
+  l_file_name VARCHAR2(600);   -- đường dẫn (FILES.file_name)
+  l_file_disp VARCHAR2(600);   -- tên gốc còn đuôi (FILES.name)
+  l_file_ext  VARCHAR2(20);
+  l_is_image  BOOLEAN;
+  l_preview   VARCHAR2(200);
+  l_mess      VARCHAR2(2000);
+BEGIN
+  OWA_UTIL.MIME_HEADER('application/json', TRUE, 'UTF-8');
+
+  IF :APP_USER IS NULL OR :APP_USER IN ('nobody','NOBODY') THEN
+    HTP.p('{"error":"auth"}'); RETURN;
+  END IF;
+  BEGIN
+    SELECT aus_id INTO l_aus_id FROM APP_USERS WHERE LOWER(user_name) = LOWER(:APP_USER);
+  EXCEPTION WHEN NO_DATA_FOUND THEN
+    HTP.p('{"error":"user_not_found"}'); RETURN;
+  END;
+
+  IF l_conv_id = 0 THEN
+    HTP.p('{"error":"conv_id required"}'); RETURN;
+  END IF;
+  IF l_fil_id IS NULL THEN
+    HTP.p('{"error":"fil_id required"}'); RETURN;
+  END IF;
+
+  SELECT COUNT(*) INTO l_member FROM CHAT_PARTICIPANTS
+  WHERE conv_id = l_conv_id AND aus_id = l_aus_id;
+  IF l_member = 0 THEN
+    HTP.p('{"error":"not_member"}'); RETURN;
+  END IF;
+
+  SELECT COUNT(*) INTO l_fil_exist FROM FILES WHERE fil_id = l_fil_id;
+  IF l_fil_exist = 0 THEN
+    HTP.p('{"error":"fil_id_not_found"}'); RETURN;
+  END IF;
+
+  -- 1) Insert CHAT_MESSENGERS với fil_id đã có (1 INSERT duy nhất)
+  l_msg_id := MSG_SEQ.NEXTVAL;
+
+  INSERT INTO CHAT_MESSENGERS
+    (msg_id, conv_id, from_aus_id, body, fil_id, reply_to_msg_id, create_date)
+  VALUES
+    (l_msg_id, l_conv_id, l_aus_id, l_caption, l_fil_id, l_reply_id, SYSTIMESTAMP);
+
+  -- 2) Gắn ngược owner_id/owner_table_name cho FILES
+  UPDATE FILES
+  SET    owner_id = l_msg_id, owner_table_name = 'CHAT_MESSENGERS'
+  WHERE  fil_id = l_fil_id;
+
+  -- 3) Cập nhật preview hội thoại (để msConvListHtml hiện đúng dòng cuối)
+  --    file_name = đường dẫn; name = tên gốc còn đuôi → suy đuôi + hiển thị từ name
+  SELECT file_name, name INTO l_file_name, l_file_disp FROM FILES WHERE fil_id = l_fil_id;
+  l_file_ext := LOWER(REGEXP_SUBSTR(l_file_disp, '\.([^.]+)$', 1, 1, NULL, 1));
+  l_is_image := l_file_ext IN ('jpg','jpeg','png','gif','webp','bmp','svg');
+  l_preview  := NVL(l_caption,
+                     CASE WHEN l_is_image THEN '[Hình ảnh]'
+                          ELSE '[Tệp tin] ' || l_file_disp END);
+
+  UPDATE CHAT_CONVERSATIONS
+  SET    last_msg_preview = SUBSTR(l_preview, 1, 200),
+         last_msg_date    = SYSTIMESTAMP
+  WHERE  conv_id = l_conv_id;
+
+  COMMIT;  -- tin nhắn đã lưu chắc chắn, không phụ thuộc bước broadcast bên dưới
+
+  -- 4) Broadcast real-time (best-effort) — lỗi ở đây KHÔNG rollback tin nhắn
+  BEGIN
+    DECLARE
+      l_conv_type VARCHAR2(10);
+      l_doc_type  VARCHAR2(30);
+      l_doc_no    VARCHAR2(60);
+      l_conv_name VARCHAR2(200);
+      l_payload   VARCHAR2(4000);
+      l_req       UTL_HTTP.REQ;
+      l_resp      UTL_HTTP.RESP;
+    BEGIN
+      SELECT conv_type, doc_type, doc_no, name
+      INTO   l_conv_type, l_doc_type, l_doc_no, l_conv_name
+      FROM   CHAT_CONVERSATIONS WHERE conv_id = l_conv_id;
+
+      l_payload := JSON_OBJECT(
+        'conv_id'         VALUE l_conv_id,
+        'msg_id'          VALUE l_msg_id,
+        'aus_id'          VALUE l_aus_id,
+        'body'            VALUE l_caption,
+        'fil_id'          VALUE l_fil_id,
+        'file_name'       VALUE l_file_name,   -- đường dẫn (href)
+        'file_disp_name'  VALUE l_file_disp,   -- tên gốc còn đuôi
+        'reply_to_msg_id' VALUE l_reply_id,
+        'doc_type'        VALUE l_doc_type,
+        'doc_no'          VALUE l_doc_no,
+        'conv_type'       VALUE l_conv_type,
+        'conv_name'       VALUE l_conv_name
+        ABSENT ON NULL
+      );
+
+      UTL_HTTP.SET_TRANSFER_TIMEOUT(5);
+      l_req := UTL_HTTP.BEGIN_REQUEST(
+        'https://chattest.erp100.vn/api/chat/broadcast-message', 'POST', 'HTTP/1.1');
+      UTL_HTTP.SET_HEADER(l_req, 'Content-Type',  'application/json; charset=utf-8');
+      UTL_HTTP.SET_HEADER(l_req, 'Connection',     'close');
+      UTL_HTTP.SET_HEADER(l_req, 'Content-Length',
+        TO_CHAR(UTL_RAW.LENGTH(UTL_RAW.CAST_TO_RAW(l_payload))));
+      UTL_HTTP.WRITE_RAW(l_req, UTL_RAW.CAST_TO_RAW(l_payload));
+      l_resp := UTL_HTTP.GET_RESPONSE(l_req);
+      UTL_HTTP.END_RESPONSE(l_resp);
+    EXCEPTION WHEN OTHERS THEN
+      NULL; -- broadcast thất bại không sao, message đã lưu; client khác thấy khi tự refresh
+    END;
+  END;
+
+  HTP.p(JSON_OBJECT(
+    'state'   VALUE 'success',
+    'msg_id'  VALUE l_msg_id,
+    'fil_id'  VALUE l_fil_id,
+    'conv_id' VALUE l_conv_id
+  ));
+EXCEPTION WHEN OTHERS THEN
+  ROLLBACK;
+  l_mess := pkg_mess.get_mess(926, SQLERRM, :G_LANGUAGE);
+  HTP.p(JSON_OBJECT('state' VALUE 'error', 'message' VALUE l_mess));
+END;
+
+
+-- ============================================================
+-- 21. msUploadFile  ★ LUỒNG GỬI FILE HIỆN HÀNH (thay #19 + #20 + Node /upload-send)
+--     Upload TRỰC TIẾP trên page APEX — vì pkg_upload_file nằm trong DB của
+--     APEX, KHÔNG nằm trong DB mà Node chat-server kết nối. Gọi package từ
+--     callback này là gọi đúng chỗ, không cần grant/DB link/ORDS.
+--
+--     Cách truyền bytes (né bế tắc temp-files của #19): client đọc File →
+--     base64 → cắt chunk ≤ 30.000 ký tự → apex.server.process('msUploadFile',
+--     { f01: chunkArray, x01:conv_id, x02:file_name, x03:caption, x04:reply }).
+--     APEX nạp chunk vào apex_application.g_f01; callback ghép lại thành CLOB
+--     rồi clobbase642blob() → BLOB → UploadFileChat (biến thể nhận BLOB).
+--
+--     x01 = conv_id (bắt buộc) | x02 = file_name (bắt buộc, tên gốc còn đuôi)
+--     x03 = caption (optional) | x04 = reply_to_msg_id (optional)
+--     f01 = mảng base64 chunks (bắt buộc)
+--
+--     co_id/oun_id/user_name lấy thẳng từ global APEX (:G_CO_ID/:G_OUN_ID_INS/
+--     :G_USER_NAME) — KHÔNG nhận từ client (an toàn hơn, khớp #19 cũ).
+--
+--     Real-time: COMMIT xong → UTL_HTTP POST Node /api/chat/broadcast-message
+--     (route CHỈ phát SSE, KHÔNG ghi DB) — lỗi broadcast không rollback tin.
+-- ============================================================
+DECLARE
+  l_aus_id    NUMBER;
+  l_conv_id   NUMBER         := TO_NUMBER(NVL(TRIM(apex_application.g_x01),'0'));
+  l_file_name VARCHAR2(600)  := NULLIF(TRIM(apex_application.g_x02), '');
+  l_caption   VARCHAR2(4000) := NULLIF(TRIM(apex_application.g_x03), '');
+  l_reply_id  NUMBER         := TO_NUMBER(NULLIF(TRIM(apex_application.g_x04), ''));
+  l_b64       CLOB;
+  l_blob      BLOB;
+  l_member    NUMBER         := 0;
+  l_fil_id    NUMBER(15);
+  l_up_mess   VARCHAR2(2000);
+  l_msg_id    NUMBER;
+  l_path      VARCHAR2(600);   -- FILES.file_name (đường dẫn href)
+  l_disp      VARCHAR2(600);   -- FILES.name (tên gốc còn đuôi)
+  l_file_ext  VARCHAR2(20);
+  l_is_image  BOOLEAN;
+  l_preview   VARCHAR2(200);
+  l_mess      VARCHAR2(2000);
+  -- Field enrich trả về browser để browser tự gọi Node /broadcast-message
+  -- (DB không route tới được Node -> ORA-12535; browser thì tới được).
+  l_conv_type VARCHAR2(10);
+  l_doc_type  VARCHAR2(30);
+  l_doc_no    VARCHAR2(60);
+  l_conv_name VARCHAR2(200);
+  l_from_name VARCHAR2(200);
+BEGIN
+  OWA_UTIL.MIME_HEADER('application/json', TRUE, 'UTF-8');
+
+  IF :APP_USER IS NULL OR :APP_USER IN ('nobody','NOBODY') THEN
+    HTP.p('{"error":"auth"}'); RETURN;
+  END IF;
+  BEGIN
+    SELECT aus_id INTO l_aus_id FROM APP_USERS WHERE LOWER(user_name) = LOWER(:APP_USER);
+  EXCEPTION WHEN NO_DATA_FOUND THEN
+    HTP.p('{"error":"user_not_found"}'); RETURN;
+  END;
+
+  IF l_conv_id = 0 THEN
+    HTP.p('{"error":"conv_id required"}'); RETURN;
+  END IF;
+  IF l_file_name IS NULL THEN
+    HTP.p('{"error":"file_name required"}'); RETURN;
+  END IF;
+  IF apex_application.g_f01.COUNT = 0 THEN
+    HTP.p('{"error":"file bytes required"}'); RETURN;
+  END IF;
+
+  SELECT COUNT(*) INTO l_member FROM CHAT_PARTICIPANTS
+  WHERE conv_id = l_conv_id AND aus_id = l_aus_id;
+  IF l_member = 0 THEN
+    HTP.p('{"error":"not_member"}'); RETURN;
+  END IF;
+
+  -- 1) Ghép base64 chunks → CLOB → BLOB
+  DBMS_LOB.CREATETEMPORARY(l_b64, TRUE);
+  FOR i IN 1 .. apex_application.g_f01.COUNT LOOP
+    DBMS_LOB.WRITEAPPEND(l_b64, LENGTH(apex_application.g_f01(i)), apex_application.g_f01(i));
+  END LOOP;
+  l_blob := apex_web_service.clobbase642blob(l_b64);
+  DBMS_LOB.FREETEMPORARY(l_b64);
+
+  IF l_blob IS NULL OR DBMS_LOB.GETLENGTH(l_blob) = 0 THEN
+    HTP.p('{"error":"empty_blob"}'); RETURN;
+  END IF;
+
+  -- 2) Upload qua package hệ thống (biến thể nhận BLOB trực tiếp) → fil_id
+  pkg_upload_file.UploadFileChat(
+    p_blob      => l_blob,
+    p_name      => l_file_name,
+    p_co_id     => :G_CO_ID,
+    p_oun_id    => :G_OUN_ID_INS,
+    p_module    => '01',
+    p_table     => 'CHAT_MESSENGERS',
+    p_user_name => :G_USER_NAME,
+    p_id        => NULL,
+    p_ffo_id    => NULL,
+    p_directory => NULL,
+    p_fil_id    => l_fil_id,
+    p_error     => l_up_mess);
+
+  IF l_fil_id IS NULL THEN
+    ROLLBACK;
+    HTP.p(JSON_OBJECT('error' VALUE NVL(l_up_mess,'upload_failed')));
+    RETURN;
+  END IF;
+
+  -- 3) INSERT CHAT_MESSENGERS với fil_id (1 INSERT, giống #20)
+  l_msg_id := MSG_SEQ.NEXTVAL;
+  INSERT INTO CHAT_MESSENGERS
+    (msg_id, conv_id, from_aus_id, body, fil_id, reply_to_msg_id, create_date)
+  VALUES
+    (l_msg_id, l_conv_id, l_aus_id, l_caption, l_fil_id, l_reply_id, SYSTIMESTAMP);
+
+  -- 4) Gắn ngược owner cho FILES (tham chiếu ngược, không phải nguồn query chính)
+  UPDATE FILES
+  SET    owner_id = l_msg_id, owner_table_name = 'CHAT_MESSENGERS'
+  WHERE  fil_id = l_fil_id;
+
+  -- 5) Preview hội thoại (name = tên gốc còn đuôi → suy đuôi phân biệt ảnh/file)
+  SELECT file_name, name INTO l_path, l_disp FROM FILES WHERE fil_id = l_fil_id;
+  l_file_ext := LOWER(REGEXP_SUBSTR(l_disp, '\.([^.]+)$', 1, 1, NULL, 1));
+  l_is_image := l_file_ext IN ('jpg','jpeg','png','gif','webp','bmp','svg');
+  l_preview  := NVL(l_caption,
+                     CASE WHEN l_is_image THEN '[Hình ảnh]'
+                          ELSE '[Tệp tin] ' || l_disp END);
+
+  UPDATE CHAT_CONVERSATIONS
+  SET    last_msg_preview = SUBSTR(l_preview, 1, 200),
+         last_msg_date    = SYSTIMESTAMP
+  WHERE  conv_id = l_conv_id;
+
+  UPDATE CHAT_PARTICIPANTS SET last_read_msg_id = l_msg_id
+  WHERE  conv_id = l_conv_id AND aus_id = l_aus_id;
+
+  COMMIT;  -- tin nhắn đã lưu chắc chắn, không phụ thuộc bước broadcast
+
+  -- 6) Nạp field enrich để TRẢ VỀ browser. KHÔNG tự UTL_HTTP sang Node ở đây:
+  --    máy DB không route tới được Node (ORA-12535 timeout). Browser của user
+  --    nhận response này rồi tự gọi Node /broadcast-message (browser tới được
+  --    Node — chính là đường mà /send text vẫn đang dùng real-time).
+  BEGIN
+    SELECT conv_type, doc_type, doc_no, name
+    INTO   l_conv_type, l_doc_type, l_doc_no, l_conv_name
+    FROM   CHAT_CONVERSATIONS WHERE conv_id = l_conv_id;
+  EXCEPTION WHEN NO_DATA_FOUND THEN NULL;
+  END;
+  BEGIN
+    SELECT REGEXP_REPLACE(NVL(e.full_name,'Unknown'),'[[:cntrl:]]','')
+    INTO   l_from_name
+    FROM   APP_USERS u JOIN EMPLOYEES e ON e.emp_id = u.emp_id
+    WHERE  u.aus_id = l_aus_id;
+  EXCEPTION WHEN NO_DATA_FOUND THEN l_from_name := 'Unknown';
+  END;
+
+  HTP.p(JSON_OBJECT(
+    'state'          VALUE 'success',
+    'msg_id'         VALUE l_msg_id,
+    'fil_id'         VALUE l_fil_id,
+    'conv_id'        VALUE l_conv_id,
+    'aus_id'         VALUE l_aus_id,
+    'from_name'      VALUE l_from_name,
+    'body'           VALUE l_caption,
+    'file_name'      VALUE l_path,
+    'file_disp_name' VALUE l_disp,
+    'reply_to_msg_id' VALUE l_reply_id,
+    'doc_type'       VALUE l_doc_type,
+    'doc_no'         VALUE l_doc_no,
+    'conv_type'      VALUE l_conv_type,
+    'conv_name'      VALUE l_conv_name
+    ABSENT ON NULL
+  ));
+EXCEPTION WHEN OTHERS THEN
+  ROLLBACK;
+  HTP.p(JSON_OBJECT('error' VALUE REPLACE(SQLERRM,'"','''')));
+END;
+
+
+-- ============================================================
+-- SCHEMA — cột fil_id cho tin nhắn file/ảnh (chạy 1 lần, TRƯỚC khi
+-- deploy msSendFileAttachment (mục 19) và msMsgThreadHtml bên trên
+-- đã có JOIN sẵn FILES)
+-- ============================================================
+--   Thay thế cơ chế owner_id/owner_table_name làm nguồn sự thật chính
+--   (polymorphic association, không có FK thật) bằng FK trực tiếp trên
+--   CHAT_MESSENGERS, trỏ tới bảng FILES có sẵn của hệ thống. owner_id/
+--   owner_table_name vẫn được gán (mục 19, bước 3) cho mục đích tham
+--   chiếu ngược, nhưng fil_id trên CHAT_MESSENGERS mới là cột dùng để
+--   query/JOIN (msMsgThreadHtml). Luồng gửi file: upload TRƯỚC (p_id=NULL,
+--   callback trả fil_id) -> 1 INSERT duy nhất vào CHAT_MESSENGERS đã có
+--   sẵn fil_id -> update owner_id/owner_table_name ngược lại trên FILES
+--   (xem msSendFileAttachment, mục 19, và msSendFileMessage() trong
+--   messenger.fgvd.js).
+--
+--   ALTER TABLE CHAT_MESSENGERS ADD fil_id NUMBER(15);
+--
+--   ALTER TABLE CHAT_MESSENGERS
+--     ADD CONSTRAINT fk_chat_msg_fil
+--     FOREIGN KEY (fil_id) REFERENCES FILES(fil_id);
+--     -- KHÔNG dùng ON DELETE SET NULL (sẽ làm tin nhắn "biến hình" ngầm
+--     -- từ file thành text). FILES không có cột soft-delete sẵn — mặc định
+--     -- NO ACTION nghĩa là Oracle sẽ CHẶN xóa file nếu còn tin nhắn tham
+--     -- chiếu (ORA-02292) — đây là hành vi an toàn chấp nhận được, không
+--     -- bắt buộc phải thêm cột is_deleted ngay.
+--
+--   CREATE INDEX ix_chat_msg_fil_id ON CHAT_MESSENGERS(fil_id);
+--
+--   msMsgThreadHtml (mục 4 phía trên) ĐÃ cập nhật JOIN FILES theo
+--   CHAT_MESSENGERS.fil_id = FILES.fil_id, render .img-card (ảnh) hoặc
+--   .file-card (file khác). Phân biệt 2 cột FILES:
+--     - FILES.file_name = đường dẫn tương đối đầy đủ → dùng THẲNG làm href/src
+--       (KHÔNG ghép tiền tố — l_file_url_prefix đã bỏ).
+--     - FILES.name = tên gốc còn đuôi → suy đuôi (ảnh vs file) + hiển thị tên.
+
+
+-- ============================================================
+-- 22. msAddMembers  ★ Thêm thành viên vào nhóm sẵn có (nút "Thêm TV" right panel)
+--     x01 = conv_id, x02 = JSON mảng aus_id, vd "[12,34]"
+--     Chèn participant chưa có vào CHAT_PARTICIPANTS. Người gọi phải là thành
+--     viên của hội thoại. KHÔNG cần DDL (bảng đã có sẵn). Real-time cho TV mới:
+--     deliverToConv (Node) đọc danh sách thành viên lúc gửi nên tin kế tiếp họ
+--     nhận được ngay; muốn họ thấy hội thoại tức thì có thể gửi 1 tin hệ thống.
+-- ============================================================
+DECLARE
+  l_aus_id   NUMBER;
+  l_conv_id  NUMBER         := TO_NUMBER(NVL(TRIM(apex_application.g_x01),'0'));
+  l_members  VARCHAR2(4000) := NVL(NULLIF(TRIM(apex_application.g_x02),''), '[]');
+  l_member   NUMBER         := 0;
+  l_added    NUMBER         := 0;
+BEGIN
+  OWA_UTIL.MIME_HEADER('application/json', TRUE, 'UTF-8');
+
+  IF :APP_USER IS NULL OR :APP_USER IN ('nobody','NOBODY') THEN
+    HTP.p('{"error":"auth"}'); RETURN;
+  END IF;
+  BEGIN
+    SELECT aus_id INTO l_aus_id FROM APP_USERS WHERE LOWER(user_name) = LOWER(:APP_USER);
+  EXCEPTION WHEN NO_DATA_FOUND THEN
+    HTP.p('{"error":"user_not_found"}'); RETURN;
+  END;
+
+  IF l_conv_id = 0 THEN
+    HTP.p('{"error":"conv_id required"}'); RETURN;
+  END IF;
+
+  -- Người gọi phải là thành viên hội thoại mới được thêm người
+  SELECT COUNT(*) INTO l_member FROM CHAT_PARTICIPANTS
+  WHERE conv_id = l_conv_id AND aus_id = l_aus_id;
+  IF l_member = 0 THEN
+    HTP.p('{"error":"not_member"}'); RETURN;
+  END IF;
+
+  INSERT INTO CHAT_PARTICIPANTS (conv_id, aus_id, is_admin, is_pinned, is_hidden)
+  SELECT l_conv_id, jt.aid, 0, 0, 0
+  FROM   JSON_TABLE(l_members, '$[*]' COLUMNS (aid NUMBER PATH '$')) jt
+  WHERE  jt.aid IS NOT NULL
+    AND  NOT EXISTS (SELECT 1 FROM CHAT_PARTICIPANTS p
+                     WHERE p.conv_id = l_conv_id AND p.aus_id = jt.aid);
+  l_added := SQL%ROWCOUNT;
+  COMMIT;
+
+  HTP.p(JSON_OBJECT('state' VALUE 'success', 'added' VALUE l_added));
+EXCEPTION WHEN OTHERS THEN
+  ROLLBACK;
+  HTP.p(JSON_OBJECT('error' VALUE REPLACE(SQLERRM,'"','''')));
+END;
+
+
+-- ============================================================
+-- 23. msSearchMsgsHtml  ★ Tìm kiếm tin nhắn trong 1 hội thoại (nút "Tìm kiếm")
+--     x01 = conv_id, x02 = từ khóa. Trả HTML danh sách kết quả (tối đa 40 tin
+--     mới nhất khớp). Mỗi dòng onclick="msJumpFromSearch(msg_id)". Bỏ tin đã xóa.
+--     Highlight bằng INSTR (literal, không regex) -> an toàn với ký tự đặc biệt.
+-- ============================================================
+DECLARE
+  l_aus_id   NUMBER;
+  l_conv_id  NUMBER         := TO_NUMBER(NVL(TRIM(apex_application.g_x01),'0'));
+  l_q        VARCHAR2(400)  := TRIM(apex_application.g_x02);
+  l_member   NUMBER         := 0;
+  l_pos      NUMBER;
+  l_body     VARCHAR2(4000);
+  l_html     VARCHAR2(4000);
+  l_qlen     NUMBER;
+BEGIN
+  OWA_UTIL.MIME_HEADER('text/html', TRUE, 'UTF-8');
+
+  IF :APP_USER IS NULL OR :APP_USER IN ('nobody','NOBODY') THEN
+    RETURN;
+  END IF;
+  BEGIN
+    SELECT aus_id INTO l_aus_id FROM APP_USERS WHERE LOWER(user_name) = LOWER(:APP_USER);
+  EXCEPTION WHEN NO_DATA_FOUND THEN RETURN;
+  END;
+
+  IF l_conv_id = 0 OR l_q IS NULL THEN RETURN; END IF;
+
+  SELECT COUNT(*) INTO l_member FROM CHAT_PARTICIPANTS
+  WHERE conv_id = l_conv_id AND aus_id = l_aus_id;
+  IF l_member = 0 THEN RETURN; END IF;
+
+  l_qlen := LENGTH(l_q);
+
+  FOR r IN (
+    SELECT m.msg_id,
+           REGEXP_REPLACE(NVL(e.full_name,'Unknown'),'[[:cntrl:]]','') AS from_name,
+           REGEXP_REPLACE(m.body,'[[:cntrl:]]',' ')                    AS body,
+           TO_CHAR(m.create_date,'DD/MM HH24:MI')                      AS msg_dt
+    FROM   CHAT_MESSENGERS m
+    JOIN   APP_USERS u ON u.aus_id = m.from_aus_id
+    JOIN   EMPLOYEES e ON e.emp_id = u.emp_id
+    WHERE  m.conv_id = l_conv_id
+      AND  m.delete_date IS NULL
+      AND  m.body IS NOT NULL
+      AND  LOWER(m.body) LIKE '%' || LOWER(l_q) || '%'
+    ORDER  BY m.msg_id DESC
+    FETCH FIRST 40 ROWS ONLY
+  ) LOOP
+    l_body := SUBSTR(r.body, 1, 300);
+    l_pos  := INSTR(LOWER(l_body), LOWER(l_q));
+    IF l_pos > 0 THEN
+      l_html := HTF.ESCAPE_SC(SUBSTR(l_body, 1, l_pos - 1))
+             || '<mark>' || HTF.ESCAPE_SC(SUBSTR(l_body, l_pos, l_qlen)) || '</mark>'
+             || HTF.ESCAPE_SC(SUBSTR(l_body, l_pos + l_qlen));
+    ELSE
+      l_html := HTF.ESCAPE_SC(l_body);
+    END IF;
+
+    HTP.p('<button type="button" class="ms-cs-item" onclick="msJumpFromSearch(' || r.msg_id || ')">');
+    HTP.p('  <div class="ms-cs-item-top">');
+    HTP.p('    <span class="ms-cs-item-name">' || HTF.ESCAPE_SC(r.from_name) || '</span>');
+    HTP.p('    <span class="ms-cs-item-date">' || r.msg_dt || '</span>');
+    HTP.p('  </div>');
+    HTP.p('  <div class="ms-cs-item-body">' || l_html || '</div>');
+    HTP.p('</button>');
+  END LOOP;
 END;
