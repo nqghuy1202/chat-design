@@ -6,12 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A **UI design prototyping workspace** for a Zalo-style fullscreen modal chat interface embedded in a multi-module ERP system (accounting, HR, production, management). B2B SaaS product. The primary deliverable is `index.html` — a self-contained, browser-runnable demo. The eventual production target is React + Tailwind CSS.
 
-Two production APEX modules exist alongside the prototypes — see **APEX Production Modules** below. `messenger/` is now the **single** production chat modal (doc-chat deprecated); architecture/UX decisions for its unified entry + cross-doc awareness are in `docs/unified-chat-architecture.md`. The `DOC` conv_type (hội thoại theo chứng từ) is detailed in `messenger/CLAUDE.md` under "conv_type = 'DOC'".
+Three APEX modules exist alongside the prototypes — see **APEX Production Modules** below. `messenger/` is the **production** chat modal (doc-chat deprecated); architecture/UX decisions for its unified entry + cross-doc awareness are in `docs/unified-chat-architecture.md`. The `DOC` conv_type (hội thoại theo chứng từ) is detailed in `messenger/CLAUDE.md` under "conv_type = 'DOC'". `chat-erp/` is a **separate, in-development** redesign (own APEX page, no production cutover yet) — see its own `chat-erp/CLAUDE.md`.
 
 ## Viewing the Demo
 
 ```powershell
-Start-Process "C:\chat-design\index.html"   # PowerShell
+Start-Process "D:\chat-design\index.html"   # PowerShell
 start index.html                             # Git Bash / cmd
 ```
 
@@ -272,7 +272,7 @@ To update skills: `npx skills check` then `npx skills update`.
 
 ## APEX Production Modules
 
-Hai module đã được triển khai thực tế trên Oracle APEX 24.2. Mỗi module là một thư mục độc lập với cấu trúc giống nhau:
+Ba module Oracle APEX 24.2 nằm trong repo: `doc-chat/` (deprecated) và `messenger/` (production) dùng chung page `10022710201`; `chat-erp/` là thiết kế mới đang phát triển trên page riêng `10022710202`, KHÔNG đụng tới page production. Mỗi module là một thư mục độc lập với cấu trúc giống nhau:
 
 ```
 <module>/
@@ -356,6 +356,17 @@ Nút 3-chấm trên `.ms-conv-item` (render là `<div role="button">` để trá
 
 **Callbacks hiện tại (19):** render HTML (`msConvListHtml` — nay có thêm tham số scope x03-x06, xem Unified Modal Entry ở trên — `msMsgThreadHtml`, `msInfoHtml`, `msContactsHtml`, `msPinnedListHtml`, `msForwardListHtml`), JSON/action (`msGetCurrentUser`, `msConvHeaderJson`, `msCreateConv`, `msFindDM`, `msGetAvatar`, `msPinConv`, `msHideConv`, `msDeleteConv`, `msToggleReaction`, `msTogglePinMsg`), deprecated relay (`msSendMsg`, `msMarkRead`). Send/read/typing/create/unread-summary đi qua `nodePost`/`nodeGet` (fetch thẳng Node, không qua callback APEX). Nguồn chuẩn: `messenger/docs/callbacks.sql`.
 
+### chat-erp/ — Thiết kế mới, đang phát triển (page riêng, chưa cutover)
+
+- **Page ID:** `10022710202` (mới hoàn toàn, KHÔNG đụng page production `10022710201` của messenger/)
+- **Real-time dùng CHUNG Node chat-server với messenger/** (cùng instance) nhưng theo cơ chế khác: mọi đọc/ghi DB vẫn qua Ajax Callback APEX; sau khi callback ghi DB xong, BROWSER (không phải DB qua UTL_HTTP, vì máy DB Oracle thường không route tới Node — ORA-12535) tự gọi `nodePost('/broadcast-message')` để phát SSE, nhận lại qua `apex:chatEvent` giống messenger/.
+- **4 nhóm sidebar** thay vì 3 `conv_type`: `chungtu`/`channel`/`nhom`/`canhan` — suy ra bằng CASE từ `conv_type` + cột mới `is_public` (KHÔNG có cột `kind` riêng): `chungtu`=`DOC`, `channel`=`CHANNEL`+`is_public=1`, `nhom`=`CHANNEL`+`is_public=0`, `canhan`=`DM`.
+- **Nhóm con:** `CHAT_CONVERSATIONS.parent_conv_id` tự tham chiếu, 1 cấp.
+- **Channel theo nhóm quyền:** bảng mới `CHAT_CHANNEL_ROLES(conv_id, gus_id)` join `USER_ROLES`/`GROUP_USERS` có sẵn trong hệ thống — không có dòng nào cho 1 `conv_id` = "Toàn công ty" (công khai).
+- **Upload file thật** qua callback `msUploadFile` (base64 → BLOB → `pkg_upload_file.UploadFileChat`, cùng cơ chế `messenger/`), không qua Node.
+- **Quan trọng khi paste HTML vào APEX:** nếu chỉ giữ `#layout` (bỏ khung `.modal`/header demo), phải tự cấp `height` cho `#layout` (CSS gốc lấy height từ `.modal{height:100vh}` đã bỏ) và set giá trị Ngũ Hành mặc định trong `:root` (gốc dựa vào `<html data-element="kim">` không còn tồn tại) — nếu không accent color (`--c-main`/`--accent`) sẽ undefined và toàn bộ nút/badge màu accent biến mất.
+- Chi tiết đầy đủ + checklist deploy 17 Ajax Callback: `chat-erp/CLAUDE.md` + `chat-erp/docs/callbacks.sql` + `chat-erp/docs/schema-additions.sql`.
+
 ### Chat Server — Node.js real-time relay (repo riêng, sửa được)
 
 Nguồn tại `C:\greensys\chat-server` (sibling repo, KHÔNG nằm trong `C:\chat-design`), deploy trên Server B `172.25.10.38:3410` qua pm2. Files chính: `server.js` (Express + SSE endpoint), `chat.js` (router `/api/chat/*`), `events.js` (SSE connection map + at-least-once buffer), `cqn.js` (Oracle CQN cho notification bell). Chi tiết đầy đủ: `chat-server/CLAUDE.md` trong repo đó.
@@ -369,7 +380,7 @@ Nguồn tại `C:\greensys\chat-server` (sibling repo, KHÔNG nằm trong `C:\ch
 
 Deploy thay đổi: `npm run test:connection` rồi `pm2 restart chat-server` trên Server B. Xem `docs/unified-chat-architecture.md` để biết spec đầy đủ.
 
-### APEX-specific Rules (áp dụng cho cả hai module)
+### APEX-specific Rules (áp dụng cho cả ba module)
 
 - **`type="button"` bắt buộc** trên mọi `<button>` tự tạo — trong HTML region, `HTP.p(...)`, và JS-generated HTML. Thiếu `type` → APEX submit form và reload page.
 - **`MATERIALIZE` hint** bắt buộc khi `REGEXP_REPLACE` hoặc `INTERVAL` dùng trên remote columns (ORA-02000).
@@ -380,17 +391,18 @@ Deploy thay đổi: `npm run test:connection` rồi `pm2 restart chat-server` tr
 
 ### Shared Database Tables
 
-Cả `doc-chat` và `messenger` dùng chung schema:
-- `CHAT_CONVERSATIONS` — `conv_id, conv_type (DM/CHANNEL), name, aus_id, doc_type, doc_no, last_msg_preview, last_msg_date`
+Cả ba module (`doc-chat`, `messenger`, `chat-erp`) dùng chung schema:
+- `CHAT_CONVERSATIONS` — `conv_id, conv_type (DM/CHANNEL/DOC), name, aus_id, doc_type, doc_no, last_msg_preview, last_msg_date` + (chat-erp/) `is_public, parent_conv_id, description`
 - `CHAT_MESSENGERS` — bảng tin nhắn (không phải `CHAT_MESSAGES`)
 - `CHAT_PARTICIPANTS` — `conv_id, aus_id, is_admin, last_read_msg_id, is_pinned, is_hidden` (`is_pinned`/`is_hidden` thêm cho dot-menu messenger — pin/ẩn ở mức per-user)
 - `CHAT_REACTIONS` — `msg_id, aus_id, emoji, create_date` (PK `msg_id+aus_id+emoji`) — reaction per-user
 - `CHAT_PINNED_MSGS` — `conv_id, msg_id, aus_id, pin_date` (PK `conv_id+msg_id`) — tin ghim trong hội thoại
+- `CHAT_CHANNEL_ROLES` — (chat-erp/, mới) `conv_id, gus_id` — channel nào hiện cho nhóm quyền nào, join `USER_ROLES`/`GROUP_USERS`
 - `CHAT_USER_ONLINE` — `aus_id, last_seen` (presence, cutoff 35 giây)
 - `CONV_SEQ` — sequence cho `conv_id`
 - `v_employees_v6` — view trả `emp_id, v_file_name` (avatar URL)
 
-**DDL cho các bảng/cột mới ở cuối `messenger/docs/callbacks.sql`. Phải chạy DDL TRƯỚC khi cập nhật callback render — nếu không `msMsgThreadHtml`/`msConvListHtml` query bảng thiếu → `ORA-00942` và không render được.**
+**DDL cho các bảng/cột mới của messenger/ ở cuối `messenger/docs/callbacks.sql`; của chat-erp/ ở `chat-erp/docs/schema-additions.sql`. Phải chạy DDL TRƯỚC khi cập nhật callback render — nếu không `msMsgThreadHtml`/`msConvListHtml` query bảng/cột thiếu → `ORA-00942`/`ORA-00904` và không render được.**
 
 ## Secondary File: nexus-pure-v2.html
 
@@ -400,6 +412,12 @@ Cả `doc-chat` và `messenger` dùng chung schema:
 - **Button reset đã có:** `button { border: none; background: transparent; ... }` trong global reset. Tailwind Preflight cung cấp rule này mặc định; pure CSS thì không.
 - **Conversation list spacing:** `#lp-conv-list`, `#lp-s2-list`, `#lp-s3-list` dùng `display:flex; flex-direction:column; gap:2px` thay cho Tailwind `space-y-0.5`.
 - **Right panel option rows** dùng class `.rp-opt-row` cho hover state (thay cho `hover:bg-slate-50`).
+
+## Other Prototype/Scratch Files
+
+- `nexus-pure.html` — earlier draft superseded by `nexus-pure-v2.html` (see below). Treat `v2` as current; don't edit `nexus-pure.html` unless explicitly asked to.
+- `messenger-redesign-prototype.html` — standalone exploratory redesign of the messenger UI, not wired to any APEX module. Not referenced by other files.
+- `_check.py`, `_conv.py`, `_fix2.py`, `_preview_phase*.html` — one-off scratch scripts/snapshots used while converting `index.html` → `nexus-pure-v2.html` (Tailwind → inline CSS). Not part of the build; safe to ignore unless asked to continue that conversion.
 
 ## Right Panel: Voucher (`renderRPVoucher`)
 

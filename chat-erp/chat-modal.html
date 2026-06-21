@@ -1,0 +1,298 @@
+<div class="modal" role="dialog" aria-modal="true" aria-label="Trao đổi và chứng từ">
+  <!-- HEADER -->
+  <div class="m-header">
+    <div class="m-title"><span class="dot"></span> Trao đổi &amp; Chứng từ</div>
+    <div class="m-search" role="button" tabindex="0" aria-label="Tìm toàn cục (Ctrl K)" onclick="openGlobalSearch()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openGlobalSearch()}"><span class="fa fa-search"></span> Tìm người, kênh, chứng từ… <kbd>⌘K</kbd></div>
+    <div class="m-wins">
+      <button class="icon-btn" title="Thu nhỏ" aria-label="Thu nhỏ cửa sổ chat" onclick="alert('Thu nhỏ cửa sổ chat (demo)')" type="button"><span class="fa fa-minus"></span></button>
+      <button class="icon-btn" title="Đóng" aria-label="Đóng cửa sổ chat" onclick="alert('Đóng cửa sổ chat (demo)')" type="button"><span class="fa fa-close"></span></button>
+    </div>
+  </div>
+
+  <!-- LAYOUT -->
+  <div class="layout" id="layout">
+    <!-- COL 1 -->
+    <aside class="sidebar">
+      <!-- Ô tìm chung (SB-04) + Soạn mới (cùng hàng) -->
+      <div class="sb-top">
+        <div class="sb-search"><span class="fa fa-search"></span> <input id="sbSearch" placeholder="Lọc nhanh tên / mã…" oninput="filterSidebar()"></div>
+        <div class="compose-wrap">
+          <button class="compose-btn" aria-haspopup="menu" aria-expanded="false" title="Soạn mới (⌘N)" aria-label="Soạn mới" onclick="toggleComposeMenu(event)" type="button"><span class="fa fa-pencil-square-o"></span></button>
+          <div class="compose-menu hidden" id="composeMenu" role="menu" aria-label="Soạn mới">
+            <button onclick="openPeoplePicker()" type="button"><span class="fa fa-comment-o"></span> Tin nhắn mới</button>
+            <button onclick="openCreateGroup()" type="button"><span class="fa fa-group"></span> Nhóm mới</button>
+          </div>
+        </div>
+      </div>
+      <!-- 2 chip lọc dưới ô tìm (CH-03) -->
+      <div class="sb-filters">
+        <div class="type-select" id="typeSelect">
+          <button class="fpill" id="typePill" aria-haspopup="true" aria-expanded="false" onclick="toggleTypeMenu(event)" type="button">
+            <span id="typeLabel">Tất cả</span> <span class="fp-caret fa fa-chevron-down" id="typeCaret"></span><span class="fp-clear fa fa-close" id="typeClear" title="Bỏ lọc loại" onclick="clearType(event)" style="display:none"></span></button>
+          <div class="type-menu hidden" id="typeMenu" role="listbox" aria-label="Lọc theo loại">
+            <div class="type-item sel" data-type="all" onclick="setType(this)"><span class="ti-check fa fa-check"></span> Tất cả</div>
+            <div class="type-item" data-type="chungtu" onclick="setType(this)"><span class="ti-check fa fa-check"></span> Chứng từ</div>
+            <div class="type-item" data-type="channel" onclick="setType(this)"><span class="ti-check fa fa-check"></span> Channel</div>
+            <div class="type-item" data-type="nhom" onclick="setType(this)"><span class="ti-check fa fa-check"></span> Nhóm</div>
+            <div class="type-item" data-type="canhan" onclick="setType(this)"><span class="ti-check fa fa-check"></span> Cá nhân</div>
+          </div>
+        </div>
+        <button class="fpill" id="unreadPill" aria-pressed="false" onclick="toggleUnread()" type="button">Chưa đọc</button>
+      </div>
+
+
+      <div class="nav-scroll" id="navScroll">
+        <!-- Rỗng lúc render tĩnh — loadConvList() (gọi từ msInit() trong onload.js)
+             nạp data thật ngay khi page load, KHÔNG hard-code data mẫu ở đây để
+             tránh nháy data giả trước khi data thật về. -->
+        <div style="padding:24px 12px;color:var(--text-tertiary);font-size:13px;text-align:center">Đang tải hội thoại…</div>
+      </div>
+      <!-- empty-state khi lọc rỗng (Cụm C) — NGOÀI #navScroll vì loadConvList() ghi đè
+           toàn bộ innerHTML của #navScroll bằng HTML server trả về (msConvListHtml) -->
+      <div class="nav-empty hidden" id="navEmpty">
+        <span class="ne-ic fa fa-search"></span>
+        <div class="ne-text">Không tìm thấy hội thoại nào</div>
+        <button class="btn" onclick="clearFilters()" type="button">Xóa bộ lọc</button>
+      </div>
+    </aside>
+
+    <!-- COL 2 -->
+    <section class="pane">
+      <div class="conv-header">
+        <span class="h-hash" id="hHash"><span class="fa fa-comment-o"></span></span>
+        <div>
+          <button class="crumb hidden" id="crumb" type="button" title="Mở nhóm cha" onclick="openCrumbParent()"><span class="fa fa-chevron-left"></span><span id="crumbText"></span></button>
+          <div class="h-name" id="hName">Chọn 1 hội thoại</div>
+          <div class="h-sub" id="hSub"></div>
+        </div>
+        <span class="spacer"></span>
+        <button class="icon-btn" title="Tìm trong hội thoại" onclick="openConvSearch()" type="button"><span class="fa fa-search"></span></button>
+        <button class="icon-btn" title="Thông tin hội thoại" onclick="openInfo()" type="button"><span class="fa fa-info-circle-o"></span></button>
+        <button class="icon-btn" id="moreBtn" title="Thêm" aria-haspopup="menu" aria-expanded="false" onclick="toggleMoreMenu(event)" type="button"><span class="fa fa-ellipsis-h"></span></button>
+        <div class="more-menu hidden" id="moreMenu" role="menu" aria-label="Tùy chọn hội thoại">
+          <div class="mm-item" id="mmOpenDoc" role="menuitem" onclick="openDocFromMenu()"><span class="mm-ic fa fa-file-o"></span> Mở chứng từ</div>
+          <div class="mm-divider" id="mmOpenDocSep"></div>
+          <div class="mm-item" role="menuitem" onclick="openCreateSubgroup()"><span class="mm-ic fa fa-plus"></span> Tạo nhóm con</div>
+          <div class="mm-item" role="menuitem" onclick="pinConv()"><span class="mm-ic fa fa-bookmark"></span> Ghim cuộc hội thoại</div>
+          <div class="mm-item danger" role="menuitem" onclick="deleteConv()"><span class="mm-ic fa fa-trash-o"></span> Xóa cuộc hội thoại</div>
+        </div>
+      </div>
+      <!-- Thanh tìm trong hội thoại (P1) -->
+      <div class="search-bar hidden" id="convSearch" role="search">
+        <span class="sb-ic fa fa-search"></span>
+        <input id="convSearchInput" placeholder="Tìm trong hội thoại…" aria-label="Tìm trong hội thoại"
+          oninput="runConvSearch()" onkeydown="convSearchKey(event)" autocomplete="off">
+        <span class="sb-count" id="convSearchCount"></span>
+        <button class="sb-nav" id="csPrev" title="Trước" aria-label="Kết quả trước" onclick="convSearchStep(-1)" type="button"><span class="fa fa-chevron-up"></span></button>
+        <button class="sb-nav" id="csNext" title="Sau" aria-label="Kết quả sau" onclick="convSearchStep(1)" type="button"><span class="fa fa-chevron-down"></span></button>
+        <button class="sb-nav" title="Đóng" aria-label="Đóng tìm kiếm" onclick="closeConvSearch()" type="button"><span class="fa fa-close"></span></button>
+      </div>
+
+      <!-- Nội dung tin do JS render từ CONVERSATIONS (Cụm A) -->
+      <div class="messages" id="messages"></div>
+      <!-- React bar nổi (chọn emoji rồi mới react) -->
+      <div class="react-bar hidden" id="reactBar" role="menu" aria-label="Chọn cảm xúc"></div>
+      <!-- Lightbox xem ảnh (P3) -->
+      <div class="lightbox hidden" id="lightbox" onclick="closeLightbox(event)">
+        <button class="lb-close" title="Đóng" aria-label="Đóng" onclick="closeLightbox(event,true)" type="button"><span class="fa fa-close"></span></button>
+        <img id="lightboxImg" src="" alt="Ảnh phóng to">
+      </div>
+
+      <!-- COMPOSER -->
+      <div class="composer">
+        <div class="reply-preview" id="replyPreview">
+          <span class="rp-icon fa fa-reply" aria-hidden="true"></span>
+          <div class="rp-main"><div class="rp-to" id="rpTo"></div><div class="rp-text" id="rpText"></div></div>
+          <button class="rp-x" type="button" title="Hủy trả lời" aria-label="Hủy trả lời" onclick="cancelReply()"><span class="fa fa-close"></span></button>
+        </div>
+        <div class="mention-pop hidden" id="mentionPop" role="listbox" aria-label="Nhắc tên"></div>
+        <div class="input" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Soạn tin nhắn" data-ph="Nhắn tin…" onkeydown="composerKey(event)" oninput="composerInput(event)"></div>
+        <div class="tools">
+          <button class="tool" title="Đính kèm ảnh hoặc tệp" aria-label="Đính kèm" onclick="pickAttachment()" type="button"><span class="fa fa-paperclip"></span></button>
+          <button class="tool" id="emojiBtn" title="Emoji" aria-haspopup="true" aria-expanded="false" onclick="toggleEmoji(event)" type="button"><span class="fa fa-smile-o"></span></button>
+          <button class="tool" title="Nhắc tên (@)" aria-label="Nhắc tên" onclick="mentionFromButton()" type="button">@</button>
+          <input type="file" id="attachInput" hidden multiple accept="image/*,application/pdf,.xlsx,.xls,.csv,.doc,.docx,.ppt,.pptx,.zip,.rar,.7z" onchange="onAttachPicked(this)">
+          <div class="emoji-pop hidden" id="emojiPop" role="menu" aria-label="Emoji"></div>
+          <div class="send">
+            <span class="kbdhint">⌘↵</span>
+            <button class="btn primary" onclick="sendMessage()" type="button">Gửi</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Compose inline (Tin nhắn mới) ===== -->
+      <div class="compose-pane hidden" id="composePicker" role="region" aria-label="Tin nhắn mới">
+        <div class="compose-head"><span class="ct">Tin nhắn mới</span><span style="flex:1"></span>
+          <button class="icon-btn" onclick="closeCompose()" title="Đóng" type="button"><span class="fa fa-close"></span></button></div>
+        <div class="compose-body">
+          <div class="to-field">
+            <span class="lbl">Tới:</span><span id="toChips"></span>
+            <input id="toInput" placeholder="gõ tên, email, phòng ban…" oninput="renderPeople(this.value)" autocomplete="off">
+          </div>
+          <div id="peopleList"></div>
+        </div>
+        <div class="compose-foot">
+          <span class="muted" id="pickCount">Chưa chọn ai</span><span class="grow"></span>
+          <button class="btn" onclick="closeCompose()" type="button">Hủy</button>
+          <button class="btn primary" id="pickAction" onclick="pickerSubmit()" type="button">Nhắn tin</button>
+        </div>
+      </div>
+
+      <!-- ===== Compose inline (Nhóm mới) ===== -->
+      <div class="compose-pane hidden" id="composeGroup" role="region" aria-label="Nhóm mới">
+        <div class="compose-head"><span class="ct">Nhóm mới</span><span style="flex:1"></span>
+          <button class="icon-btn" onclick="closeCompose()" title="Đóng" type="button"><span class="fa fa-close"></span></button></div>
+        <div class="compose-body">
+          <div class="cg-grid">
+            <div>
+              <div class="cg-field">
+                <label>Tên nhóm *</label>
+                <input type="text" id="grpName" placeholder="vd: Đối chiếu đơn An Phát" oninput="renderPreview();clearErr()">
+                <div class="cg-err" id="grpErr">Vui lòng nhập tên nhóm</div>
+              </div>
+              <div class="cg-field">
+                <label>Thành viên</label>
+                <div class="to-field"><span id="grpChips"></span>
+                  <input id="grpMemInput" placeholder="thêm thành viên…" oninput="renderPeople(this.value,true)" autocomplete="off"></div>
+                <div id="grpPeopleList"></div>
+              </div>
+              <div class="cg-field">
+                <label>Gắn chứng từ (tùy chọn)</label>
+                <button class="btn" onclick="attachDoc()" type="button">+ Gắn chứng từ</button>
+                <span id="grpDoc" style="font-size:13px;color:var(--text-secondary);margin-left:8px"></span>
+              </div>
+              <div class="channel-hint">💡 Nhóm luôn riêng tư (chỉ người được mời). Cần công khai cho cả công ty? <a onclick="openCreateChannel()">Tạo Channel</a></div>
+            </div>
+            <div class="preview" id="grpPreview">
+              <div class="pv-av" id="pvAv">N</div>
+              <div class="pv-name" id="pvName">Nhóm chưa đặt tên</div>
+              <div class="pv-meta" id="pvMeta"><span class="fa fa-lock"></span> Riêng tư · 1 thành viên</div>
+              <div class="pv-sec">Thành viên</div>
+              <div id="pvMembers"><div class="pv-row">◉ Bạn (Quản trị)</div></div>
+              <div id="pvDocWrap" style="display:none"><div class="pv-sec">Chứng từ đính kèm</div><div id="pvDoc"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="compose-foot"><span class="grow"></span>
+          <button class="btn" onclick="closeCompose()" type="button">Hủy</button>
+          <button class="btn primary" id="grpCreate" onclick="createGroup()" type="button">Tạo nhóm</button>
+        </div>
+      </div>
+
+      <!-- ===== Compose inline (Kênh mới) ===== -->
+      <div class="compose-pane hidden" id="composeChannel" role="region" aria-label="Kênh mới">
+        <div class="compose-head"><span class="ct">Kênh mới</span><span style="flex:1"></span>
+          <button class="icon-btn" onclick="closeCompose()" title="Đóng" type="button"><span class="fa fa-close"></span></button></div>
+        <div class="compose-body">
+          <div class="cg-grid">
+            <div>
+              <div class="cg-field">
+                <label>Tên kênh *</label>
+                <input type="text" id="chName" placeholder="vd: Kế toán nội bộ" oninput="renderChannelPreview()">
+                <div class="cg-err" id="chErr">Vui lòng nhập tên kênh</div>
+              </div>
+              <div class="cg-field">
+                <label>Mô tả (tùy chọn)</label>
+                <input type="text" id="chDesc" placeholder="Kênh này dùng để…" oninput="renderChannelPreview()">
+              </div>
+              <div class="cg-field">
+                <label>Ai được xem * <span style="font-weight:400;color:var(--text-tertiary)">(chọn nhóm quyền)</span></label>
+                <div class="role-select" id="roleSelect">
+                  <div class="role-control" onclick="toggleRoleMenu(event)" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="role-chips" id="roleChips"></span>
+                    <span class="role-ph" id="rolePh">Chọn nhóm quyền…</span>
+                    <span class="role-caret fa fa-chevron-down"></span>
+                  </div>
+                  <div class="role-menu hidden" id="roleMenu" role="listbox" aria-label="Nhóm quyền">
+                    <!-- nạp động từ GROUP_USERS qua msRoleOptionsHtml() lúc msInit() -->
+                    <div class="role-item" data-role="" data-role-name="Toàn công ty" onclick="toggleRole(this)"><span class="ri-check fa fa-check"></span> Toàn công ty</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="preview" id="chPreview">
+              <div class="pv-av" id="chPvAv">#</div>
+              <div class="pv-name" id="chPvName">#kênh-chưa-đặt-tên</div>
+              <div class="pv-meta" id="chPvMeta">Công khai theo nhóm quyền</div>
+              <div class="pv-sec">Ai được xem</div>
+              <div id="chPvRoles"><div class="pv-row" style="color:var(--text-tertiary)">Chưa chọn nhóm quyền</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="compose-foot"><span class="grow"></span>
+          <button class="btn" onclick="closeCompose()" type="button">Hủy</button>
+          <button class="btn primary" id="chCreate" onclick="createChannel()" type="button">Tạo kênh</button>
+        </div>
+      </div>
+
+      <!-- ===== Compose inline (Nhóm con) ===== -->
+      <div class="compose-pane hidden" id="composeSubgroup" role="region" aria-label="Nhóm con">
+        <div class="compose-head"><span class="ct">Nhóm con</span><span style="flex:1"></span>
+          <button class="icon-btn" onclick="closeCompose()" title="Đóng" type="button"><span class="fa fa-close"></span></button></div>
+        <div class="compose-body">
+          <div class="subgroup-source">Tạo nhóm con từ <span class="src-chip" id="sgSrcChip"><span class="fa fa-file-o"></span> SO-2026-0148</span></div>
+          <div class="cg-grid">
+            <div>
+              <div class="cg-field">
+                <label>Tên nhóm con *</label>
+                <input type="text" id="sgName" placeholder="vd: Đối chiếu SO-2026-0148" oninput="renderSubgroupPreview()">
+                <div class="cg-err" id="sgErr">Vui lòng nhập tên nhóm con</div>
+              </div>
+              <div class="cg-field">
+                <div class="mc-head">
+                  <label>Thành viên <span class="mc-count" id="sgCount"></span></label>
+                  <button class="mc-all" id="sgAll" onclick="sgToggleAll()" type="button">Bỏ chọn tất cả</button>
+                </div>
+                <div class="member-check" id="sgMembers"></div>
+              </div>
+              <div class="channel-hint">💡 Nhóm con luôn riêng tư (chỉ người được mời). Cần công khai cho cả công ty? <a onclick="openCreateChannel()">Tạo Channel</a></div>
+            </div>
+            <div class="preview" id="sgPreview">
+              <div class="pv-av" id="sgPvAv">N</div>
+              <div class="pv-name" id="sgPvName">Nhóm con chưa đặt tên</div>
+              <div class="pv-meta" id="sgPvMeta"><span class="fa fa-lock"></span> Riêng tư · 1 thành viên</div>
+              <div class="pv-sec">Thành viên</div>
+              <div id="sgPvMembers"></div>
+              <div class="pv-sec">Nguồn</div>
+              <div id="sgPvSource"><div class="pv-row" id="sgPvSrcRow"><span class="fa fa-file-o"></span> SO-2026-0148</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="compose-foot"><span class="grow"></span>
+          <button class="btn" onclick="closeCompose()" type="button">Hủy</button>
+          <button class="btn primary" id="sgCreate" onclick="createSubgroup()" type="button">Tạo nhóm con</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- COL 3: side panel -->
+    <aside class="side" id="side" aria-hidden="true">
+      <!-- nội dung được JS thay -->
+    </aside>
+  </div>
+
+  <!-- Realtime toast (trong modal) -->
+  <div class="toast hidden" id="toast" role="status" aria-live="polite">
+    <div class="t-head"><span class="di-ic fa fa-file-text-o"></span> Hóa đơn · INV-2026-0091</div>
+    <div class="t-body" id="toastBody">Hùng: "Số tiền đã khớp nhé"</div>
+    <div class="t-actions">
+      <button class="btn" onclick="hideToast()" type="button">Bỏ qua</button>
+      <button class="btn primary" onclick="viewToast()" type="button">Xem</button>
+    </div>
+  </div>
+
+  <!-- Tìm toàn cục (⌘K) - Cụm D -->
+  <div class="gs-overlay hidden" id="gsOverlay" role="dialog" aria-modal="true" aria-label="Tìm toàn cục" onclick="gsBackdrop(event)">
+    <div class="gs-card">
+      <div class="gs-head">
+        <span class="gs-sic fa fa-search"></span>
+        <input id="gsInput" placeholder="Tìm người, kênh, chứng từ…" aria-label="Tìm người, kênh, chứng từ"
+          oninput="renderGlobalResults(this.value)" onkeydown="gsKey(event)" autocomplete="off">
+        <kbd>Esc</kbd>
+      </div>
+      <div class="gs-body" id="gsBody"></div>
+    </div>
+  </div>
+
+</div>
+
