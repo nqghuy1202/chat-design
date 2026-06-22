@@ -56,6 +56,50 @@ let activeConvKind = 'nhom';  // chungtu | channel | nhom | canhan
 let activeConvIsDoc = false;
 let _sidePanelKind = null;  // 'info' | 'thread' | 'detail' | null — panel #side đang hiện gì
 
+/* ============================================================
+   Unified Entry — 2 cửa vào (icon header = tất cả; nút "Trao đổi" = scoped 1 chứng từ)
+   + cross-doc awareness. Xem docs/unified-chat-architecture.md.
+   entryDoc set TRƯỚC khi mở modal qua sessionStorage['msEntryDoc'].
+   ============================================================ */
+let entryDoc = null;        // {doc_type, doc_no, doc_label} hoặc null (cửa header)
+let scopeMode = 'all';      // 'all' | 'doc'
+let draftConv = null;       // Phòng ảo: hội thoại CHƯA ghi DB, chỉ tạo khi gửi tin đầu.
+                            // {kind:'dm'|'doc'|'nhom'|'channel', title, ...metadata}
+let unreadMap = {};         // convId -> số chưa đọc (nguồn cho badge tổng)
+let crossDocQueue = [];     // [{conv_id, doc_no, conv_name}] tin tới ngoài scope chứng từ
+
+function initEntryDoc(){
+  entryDoc = null; scopeMode = 'all';
+  try{
+    const raw = sessionStorage.getItem('msEntryDoc');
+    if(raw){
+      const d = JSON.parse(raw);
+      if(d && d.doc_type && d.doc_no){ entryDoc = d; scopeMode = 'doc'; }
+    }
+  }catch(e){ console.warn('[chat-erp] msEntryDoc hỏng, fallback all', e); entryDoc=null; scopeMode='all'; }
+  // Segmented control chỉ hiện khi vào từ chứng từ
+  const box = document.getElementById('scopeBox');
+  if(box){
+    box.classList.toggle('hidden', !entryDoc);
+    if(entryDoc){
+      const lbl = document.getElementById('scopeDocLabel');
+      if(lbl) lbl.textContent = entryDoc.doc_label || (entryDoc.doc_type+'-'+entryDoc.doc_no);
+      applyScopeButtons();
+    }
+  }
+}
+function applyScopeButtons(){
+  document.querySelectorAll('#scopeBox .scope-tab').forEach(b=>
+    b.classList.toggle('active', b.dataset.scope === scopeMode));
+}
+function setScope(mode){
+  if(mode === scopeMode) return;
+  scopeMode = mode;
+  applyScopeButtons();
+  if(mode === 'doc') hideCrossDocBanner();   // đã quay về chứng từ → ẩn banner
+  loadConvList();
+}
+
 function paneComposer(){return document.querySelector('.pane .composer .input');}
 function scrollMessages(){const m=document.getElementById('messages');m.scrollTop=m.scrollHeight;}
 function nowHM(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
@@ -64,9 +108,11 @@ function nowHM(){const d=new Date();return String(d.getHours()).padStart(2,'0')+
    Khởi tạo
    ============================================================ */
 function msInit(){
+  initEntryDoc();
   apexCallJson('msGetCurrentUser', {}, function(u){
     currentUser = u;
     loadConvList();
+    initUnreadSummary();
   }, function(){
     document.getElementById('navScroll').innerHTML =
       '<div style="padding:16px;color:#DC2626">Không lấy được thông tin người dùng. Tải lại trang.</div>';
@@ -93,12 +139,66 @@ function onChatEvent(_, ev){
   if(ev.type === 'message'){
     loadConvList();
     if(ev.conv_id == activeConvId){
+      // Tin của hội thoại đang mở → append vào thread, đánh dấu đã đọc, KHÔNG báo cross-doc.
       apexCall('msMsgThreadHtml', {x01: activeConvId}, function(html){
         document.getElementById('messages').innerHTML = html; initMsgActions(); scrollMessages();
       });
       apexCallJson('msMarkRead', {x01: activeConvId});
+    } else {
+      // Tin ở hội thoại khác → tăng unread + badge tổng.
+      unreadMap[ev.conv_id] = (unreadMap[ev.conv_id] || 0) + 1;
+      updateGlobalBadge();
+      // Đang scope chứng từ mà tin tới TỪ hội thoại NGOÀI chứng từ đang xem → banner cross-doc.
+      if(scopeMode === 'doc' && entryDoc && String(ev.doc_no || '') !== String(entryDoc.doc_no)){
+        if(!crossDocQueue.some(x => x.conv_id == ev.conv_id)){
+          crossDocQueue.push({conv_id: ev.conv_id, doc_no: ev.doc_no || null, conv_name: ev.conv_name || 'Hội thoại'});
+        }
+        showCrossDocBanner();
+      }
     }
   }
+}
+
+/* ===== Badge tổng + cross-doc banner ===== */
+function initUnreadSummary(){
+  if(!currentUser || !currentUser.aus_id) return;
+  nodeGet('/unread-summary/' + currentUser.aus_id, function(res){
+    unreadMap = {};
+    if(res && Array.isArray(res.by_conv)){
+      res.by_conv.forEach(c => { unreadMap[c.conv_id] = c.unread; });
+    }
+    updateGlobalBadge();
+  });
+}
+function unreadTotal(){
+  let t = 0; for(const k in unreadMap){ t += unreadMap[k] || 0; } return t;
+}
+function updateGlobalBadge(){
+  const total = unreadTotal();
+  const el = document.getElementById('msgTotalBadge');   // badge trong modal (nếu có)
+  if(el){ el.textContent = total > 99 ? '99+' : total; el.classList.toggle('hidden', total <= 0); }
+  // Hook tới icon tin nhắn ở header HỆ THỐNG (app cha, ngoài file chat-erp): nếu app
+  // cha có hàm window.msSetChatBadge(total) thì gọi để cập nhật badge launcher.
+  try{ if(_parentWin && typeof _parentWin.msSetChatBadge === 'function') _parentWin.msSetChatBadge(total); }catch(e){}
+}
+function showCrossDocBanner(){
+  const b = document.getElementById('crossdocBanner'); if(!b) return;
+  const n = crossDocQueue.length;
+  const txt = document.getElementById('crossdocText');
+  if(txt) txt.textContent = n + (n>1 ? ' hội thoại khác có tin mới' : ' tin mới ở hội thoại khác');
+  b.classList.remove('hidden');
+}
+function hideCrossDocBanner(){
+  const b = document.getElementById('crossdocBanner'); if(b) b.classList.add('hidden');
+}
+function viewCrossDoc(){
+  // Bấm [Xem]: chuyển sang "Tất cả" + mở hội thoại mới nhất ngoài scope.
+  const last = crossDocQueue[crossDocQueue.length - 1];
+  crossDocQueue = [];
+  hideCrossDocBanner();
+  if(entryDoc){ scopeMode = 'all'; applyScopeButtons(); }
+  loadConvList();
+  if(last && last.conv_id) openConversation2(last.conv_id);
 }
 
 /* ============================================================
@@ -106,7 +206,12 @@ function onChatEvent(_, ev){
    ============================================================ */
 function loadConvList(){
   const q = (document.getElementById('sbSearch').value || '').trim();
-  apexCall('msConvListHtml', {x01: filterType, x02: q, x03: unreadOnly ? '1' : '0'}, function(html){
+  apexCall('msConvListHtml', {
+    x01: filterType, x02: q, x03: unreadOnly ? '1' : '0',
+    x04: scopeMode,
+    x05: entryDoc ? entryDoc.doc_type : '',
+    x06: entryDoc ? entryDoc.doc_no : ''
+  }, function(html){
     document.getElementById('navScroll').innerHTML = html;
     applyOverflow();
     const any = document.querySelectorAll('#navScroll .sb-section').length > 0;
@@ -114,7 +219,23 @@ function loadConvList(){
     if(activeConvId){
       document.querySelectorAll('[data-conv="'+activeConvId+'"]').forEach(e=>e.classList.add('active'));
     }
+    maybeOpenDocRoom();
   });
+}
+/* Vào từ nút "Trao đổi" chứng từ: lần đầu danh sách load xong, tự mở phòng chung
+   của chứng từ — phòng THẬT nếu đã có, hoặc PHÒNG ẢO nếu chưa (gõ là tạo). Chỉ
+   chạy 1 lần để không cướp ngữ cảnh khi user tự điều hướng sau đó. */
+let _docRoomChecked = false;
+function maybeOpenDocRoom(){
+  if(_docRoomChecked || scopeMode !== 'doc' || !entryDoc) return;
+  _docRoomChecked = true;
+  const main = document.querySelector('#navScroll .sb-section[data-group="chungtu"] .doc-item:not(.subgroup)[data-conv]');
+  if(main){
+    openConversation2(Number(main.dataset.conv));
+  } else {
+    openVirtualRoom({kind:'doc', doc_type: entryDoc.doc_type, doc_no: entryDoc.doc_no,
+      title: entryDoc.doc_label || (entryDoc.doc_type+'-'+entryDoc.doc_no)});
+  }
 }
 
 /* ============================================================
@@ -123,6 +244,7 @@ function loadConvList(){
 function openConversation2(convId){
   if(!convId) return;
   activeConvId = convId;
+  draftConv = null;   // mở hội thoại thật → bỏ phòng ảo đang chờ (nếu có)
   document.querySelectorAll('.conv,.doc-item').forEach(e=>e.classList.remove('active'));
   document.querySelectorAll('[data-conv="'+convId+'"]').forEach(e=>{
     e.classList.add('active');
@@ -136,6 +258,10 @@ function openConversation2(convId){
   });
 
   apexCallJson('msMarkRead', {x01: convId});
+  // Đã đọc hội thoại này → trừ khỏi badge tổng + gỡ khỏi hàng đợi cross-doc.
+  if(unreadMap[convId]){ unreadMap[convId] = 0; updateGlobalBadge(); }
+  crossDocQueue = crossDocQueue.filter(x => x.conv_id != convId);
+  if(crossDocQueue.length === 0) hideCrossDocBanner(); else showCrossDocBanner();
   loadMentionMembers(convId);
 
   // Header: lấy trực tiếp từ item sidebar đã render (tránh round-trip JSON riêng)
@@ -185,8 +311,16 @@ function selectSubgroup(el,icon,parent,id){ openConversation2(id); }
    ============================================================ */
 let replyTo = null;  // {id, fromName} khi đang trả lời 1 tin trong panel "Luồng trả lời"
 function sendMessage(){
-  const ci=paneComposer(); if(!ci || !activeConvId) return;
+  const ci=paneComposer(); if(!ci) return;
   const text=serializeComposer(ci).trim(); if(!text) return;
+  // Phòng ảo: chưa có hội thoại thật trong DB → tạo (materialize) trước rồi mới gửi.
+  if(!activeConvId){
+    if(draftConv){ materializeDraftThenSend(text, ci); }
+    return;
+  }
+  _doSend(text, ci);
+}
+function _doSend(text, ci){
   closeMentionPop();
   ci.contentEditable = 'false';
   apexCallJson('msSendMsg', {x01: activeConvId, x02: text, x03: replyTo ? replyTo.id : ''}, function(res){
@@ -198,6 +332,61 @@ function sendMessage(){
     loadConvList();
     broadcastMessage(res);
   }, function(){ ci.contentEditable='true'; alert('Gửi tin thất bại, thử lại.'); });
+}
+
+/* ============================================================
+   Phòng ảo (virtual room) — mở hội thoại trống KHÔNG ghi DB; chỉ tạo thật
+   (materialize) khi gửi tin đầu tiên. Bỏ đi mà không gửi → không sinh row.
+   ============================================================ */
+function openVirtualRoom(draft){
+  draftConv = draft;
+  activeConvId = null;
+  closeCompose();
+  document.querySelectorAll('.conv,.doc-item').forEach(e=>e.classList.remove('active'));
+  const kind = draft.kind;
+  activeConvKind = kind==='dm' ? 'canhan' : kind==='doc' ? 'chungtu' : kind==='channel' ? 'channel' : 'nhom';
+  activeConvIsDoc = (kind==='doc');
+  document.getElementById('hName').innerHTML = escapeHtml(draft.title||'Hội thoại mới')+' <span class="new-chip">Mới</span>';
+  document.getElementById('hSub').textContent =
+    kind==='dm' ? 'Tin nhắn trực tiếp' : kind==='doc' ? 'Hội thoại theo chứng từ' : 'Hội thoại nhóm';
+  const iconMap = {chungtu:'<span class="fa fa-file-o"></span>', channel:'#', nhom:'<span class="fa fa-group"></span>', canhan:'<span class="fa fa-user"></span>'};
+  document.getElementById('hHash').innerHTML = iconMap[activeConvKind] || '<span class="fa fa-comment-o"></span>';
+  document.getElementById('crumb').classList.add('hidden');
+  document.getElementById('messages').innerHTML =
+    '<div class="ve-empty"><span class="ve-ic fa fa-paper-plane-o"></span>'+
+    '<div class="ve-title">Bắt đầu trao đổi</div>'+
+    '<div class="ve-sub">Gửi tin đầu tiên để tạo hội thoại này.</div></div>';
+  const ci=paneComposer();
+  if(ci){ ci.dataset.ph='Nhắn tin để bắt đầu…'; ci.innerText=''; ci.contentEditable='true'; setTimeout(()=>ci.focus(),60); }
+  cancelReply(); closeMentionPop();
+  if(layout.classList.contains('panel-open')) closePanel();
+}
+/* Gửi tin đầu: tạo hội thoại thật theo kind rồi gửi (tái dùng _doSend). */
+function materializeDraftThenSend(text, ci){
+  const d = draftConv; if(!d) return;
+  ci.contentEditable = 'false';
+  const onConv = function(res){
+    if(!res || !res.conv_id){ ci.contentEditable='true'; alert('Tạo hội thoại thất bại, thử lại.'); return; }
+    activeConvId = res.conv_id;
+    draftConv = null;
+    // Phòng đã thật → gỡ nhãn "Mới" ở header.
+    document.getElementById('hName').textContent = d.title || '';
+    loadMentionMembers(activeConvId);
+    _doSend(text, ci);
+  };
+  const onErr = function(){ ci.contentEditable='true'; alert('Tạo hội thoại thất bại, thử lại.'); };
+  if(d.kind==='dm'){
+    apexCallJson('msCreateDM', {x01: d.partnerId}, onConv, onErr);
+  } else if(d.kind==='doc'){
+    apexCallJson('msEnsureDocConv', {x01: d.doc_type, x02: d.doc_no}, onConv, onErr);
+  } else if(d.kind==='nhom'){
+    apexCallJson('msCreateGroup', {x01: d.name, x02: (d.memberIds||[]).join(','),
+      x03: d.attachedDoc?d.attachedDoc.doc_type:'', x04: d.attachedDoc?d.attachedDoc.doc_no:''}, onConv, onErr);
+  } else if(d.kind==='channel'){
+    apexCallJson('msCreateChannel', {x01: d.name, x02: d.desc||'', x03: (d.roleIds||[]).join(',')}, onConv, onErr);
+  } else {
+    ci.contentEditable='true';
+  }
 }
 function composerKey(e){
   if(_mentionOpen){
@@ -600,7 +789,8 @@ function renderPeople(q,grp){
         (html || '<div class="person"><div class="pinfo"><div class="pn">Không tìm thấy</div></div></div>');
       list.querySelectorAll('.person[data-id]').forEach(p=>{
         const id=Number(p.dataset.id);
-        selectedMeta[id] = {name: p.dataset.name, hue: p.dataset.hue};
+        selectedMeta[id] = {name: p.dataset.name, hue: p.dataset.hue,
+                            dm: p.dataset.conv ? Number(p.dataset.conv) : null};
         p.classList.toggle('sel', selected.includes(id));
       });
     });
@@ -627,11 +817,13 @@ function updatePickFoot(){
 function pickerSubmit(){
   if(selected.length===0) return;
   if(selected.length>=2){ openCreateGroup(); return; }
-  apexCallJson('msCreateDM', {x01: selected[0]}, function(res){
-    closeCompose();
-    loadConvList();
-    openConversation2(res.conv_id);
-  });
+  // DM kiểu Messenger: đã có hội thoại với người này → LOAD hội thoại cũ;
+  // chưa có → mở phòng ảo (chỉ tạo DM thật khi gửi tin đầu).
+  const pid = selected[0];
+  const m = selectedMeta[pid] || {};
+  closeCompose();
+  if(m.dm){ openConversation2(m.dm); }
+  else { openVirtualRoom({kind:'dm', partnerId: pid, title: m.name || 'Hội thoại'}); }
 }
 
 /* Create group (nhóm luôn riêng tư) */
@@ -658,12 +850,10 @@ function createGroup(){
   const name=document.getElementById('grpName').value.trim();
   if(!name){document.getElementById('grpErr').classList.add('show');document.getElementById('grpName').focus();return;}
   if(selected.length===0){alert('Thêm ít nhất 1 thành viên');return;}
-  apexCallJson('msCreateGroup', {
-    x01: name, x02: selected.join(','),
-    x03: attachedDoc ? attachedDoc.doc_type : '', x04: attachedDoc ? attachedDoc.doc_no : ''
-  }, function(res){
-    closeCompose(); loadConvList(); openConversation2(res.conv_id);
-  });
+  // Nhóm: giữ bước nhập tên+thành viên, nhưng mở phòng ảo — chỉ INSERT (msCreateGroup)
+  // khi gửi tin đầu. Snapshot lựa chọn vì `selected` dùng chung, sẽ bị reset.
+  openVirtualRoom({kind:'nhom', name: name, memberIds: selected.slice(),
+    attachedDoc: attachedDoc, title: name});
 }
 
 /* ===== Tạo Channel (công khai, theo nhóm quyền) =====
@@ -742,9 +932,9 @@ function createChannel(){
   const name=document.getElementById('chName').value.trim();
   if(!name){document.getElementById('chErr').classList.add('show');document.getElementById('chName').focus();return;}
   const desc=document.getElementById('chDesc').value.trim();
-  apexCallJson('msCreateChannel', {x01: name, x02: desc, x03: chRoles.join(',')}, function(res){
-    closeCompose(); loadConvList(); openConversation2(res.conv_id);
-  });
+  // Channel: giữ bước nhập tên+quyền, mở phòng ảo — chỉ INSERT (msCreateChannel)
+  // khi gửi tin đầu. Snapshot roleIds vì chRoles dùng chung sẽ bị reset.
+  openVirtualRoom({kind:'channel', name: name, desc: desc, roleIds: chRoles.slice(), title: '#'+slugify(name)});
 }
 
 /* ===== Tạo Nhóm con — nguồn = hội thoại đang mở ===== */
@@ -1015,9 +1205,11 @@ function renderGlobalResults(q){
   }, 200);
 }
 function gsPick(id){ closeGlobalSearch(); loadConvList(); setTimeout(()=>openConversation2(id), 200); }
-function gsPickPerson(ausId){
+function gsPickPerson(ausId, name, dmConv){
   closeGlobalSearch();
-  apexCallJson('msCreateDM', {x01: ausId}, function(res){ loadConvList(); openConversation2(res.conv_id); });
+  // Nhất quán với pickerSubmit: đã có DM → load hội thoại cũ; chưa có → phòng ảo.
+  if(dmConv && Number(dmConv)>0){ openConversation2(Number(dmConv)); }
+  else { openVirtualRoom({kind:'dm', partnerId: ausId, title: name || 'Hội thoại'}); }
 }
 function gsKey(e){
   if(e.key==='Escape'){e.preventDefault();closeGlobalSearch();return;}

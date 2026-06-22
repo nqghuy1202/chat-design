@@ -56,4 +56,14 @@ CREATE TABLE CHAT_CHANNEL_ROLES (
 -- ALTER TABLE CHAT_MESSENGERS ADD fil_id NUMBER;
 -- ALTER TABLE CHAT_MESSENGERS ADD CONSTRAINT fk_chat_msg_fil FOREIGN KEY (fil_id) REFERENCES FILES(fil_id);
 
+-- 6) "Phòng ảo" (virtual room) — chống tạo TRÙNG phòng chung của 1 chứng từ khi 2
+--    người gửi tin đầu đồng thời (callback msEnsureDocConv #18). Functional UNIQUE INDEX
+--    CHỈ ràng buộc phòng chung DOC (conv_type='DOC' và parent_conv_id IS NULL); với các
+--    dòng khác (DM/CHANNEL/nhóm con) hai biểu thức CASE = NULL nên Oracle KHÔNG index →
+--    không ảnh hưởng. Chạy DDL này TRƯỚC khi tạo/chạy callback msEnsureDocConv.
+CREATE UNIQUE INDEX uq_doc_main ON CHAT_CONVERSATIONS (
+  CASE WHEN conv_type='DOC' AND parent_conv_id IS NULL THEN doc_type END,
+  CASE WHEN conv_type='DOC' AND parent_conv_id IS NULL THEN doc_no   END
+);
+
 COMMIT;

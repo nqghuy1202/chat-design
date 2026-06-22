@@ -61,15 +61,24 @@ END;
 -- 2. msConvListHtml
 --    x01 = filter (all/chungtu/channel/nhom/canhan) | x02 = search text
 --    x03 = '1' nếu chỉ hiện chưa đọc
+--    x04 = scopeMode ('all' | 'doc') — 'doc' khi mở từ nút "Trao đổi" chứng từ
+--    x05 = doc_type | x06 = doc_no  (chứng từ đang xem, cho scope='doc' / section "Đang xem")
 --    Render 5 section giống chat-modal.html: pinned, chungtu, channel, nhom (lồng
 --    nhóm con ngay dưới cha), canhan. data-conv/data-name giữ nguyên để
 --    filterSidebar() phía client tiếp tục hoạt động (lọc thêm không cần round-trip).
+--    SCOPE: 'doc' lọc đúng doc_type+doc_no và CHO PHÉP người chưa-participant THẤY
+--    hội thoại của chứng từ (LEFT JOIN) — đồng bộ chính sách "mở hoàn toàn theo
+--    chứng từ" (xem msMsgThreadHtml lazy-join). 'all' giữ nguyên: chỉ hội thoại của
+--    mình (yêu cầu participant).
 -- ============================================================
 DECLARE
   l_aus_id  NUMBER;
   l_filter  VARCHAR2(20)  := NVL(LOWER(TRIM(apex_application.g_x01)), 'all');
   l_search  VARCHAR2(200) := LOWER(TRIM(apex_application.g_x02));
   l_unread  VARCHAR2(1)   := NVL(apex_application.g_x03, '0');
+  l_scope   VARCHAR2(10)  := NVL(LOWER(TRIM(apex_application.g_x04)), 'all');
+  l_dt      VARCHAR2(30)  := TRIM(apex_application.g_x05);
+  l_dn      VARCHAR2(60)  := TRIM(apex_application.g_x06);
 BEGIN
   OWA_UTIL.MIME_HEADER('text/html', TRUE, 'UTF-8');
   IF :APP_USER IS NULL OR :APP_USER IN ('nobody','NOBODY') THEN
@@ -120,8 +129,12 @@ BEGIN
                AND m.msg_id > NVL(p.last_read_msg_id,0)) AS unread_count,
             (SELECT name FROM CHAT_CONVERSATIONS pc WHERE pc.conv_id = c.parent_conv_id) AS parent_name
           FROM CHAT_CONVERSATIONS c
-          JOIN CHAT_PARTICIPANTS  p ON p.conv_id=c.conv_id AND p.aus_id=l_aus_id
+          LEFT JOIN CHAT_PARTICIPANTS  p ON p.conv_id=c.conv_id AND p.aus_id=l_aus_id
           WHERE NVL(p.is_hidden,0)=0
+            -- scope='doc': hiện MỌI hội thoại của chứng từ (kể cả chưa tham gia) để
+            -- ai vào được chứng từ đều thấy & trao đổi. Ngược lại: chỉ hội thoại của mình.
+            AND ( (l_scope='doc' AND c.doc_type=l_dt AND c.doc_no=l_dn)
+                  OR (l_scope<>'doc' AND p.aus_id IS NOT NULL) )
             AND (c.is_public != 1 OR NOT EXISTS (SELECT 1 FROM CHAT_CHANNEL_ROLES r WHERE r.conv_id=c.conv_id)
                  OR EXISTS (SELECT 1 FROM CHAT_CHANNEL_ROLES r JOIN USER_ROLES ur ON ur.gus_id=r.gus_id
                             WHERE r.conv_id=c.conv_id AND ur.aus_id=l_aus_id))
@@ -203,10 +216,21 @@ BEGIN
   EXCEPTION WHEN NO_DATA_FOUND THEN
     HTP.p('<div style="padding:16px;color:#DC2626">Không tìm thấy user</div>'); RETURN;
   END;
-  -- xác nhận user là participant
-  DECLARE l_cnt NUMBER; BEGIN
+  -- xác nhận quyền truy cập.
+  -- Hội thoại theo chứng từ (conv_type='DOC') MỞ cho mọi người vào được chứng từ:
+  -- nếu chưa là participant thì tự thêm (lazy-join) để có unread/last_read và
+  -- hiển thị ở danh sách "Chứng từ". DM/CHANNEL/nhóm vẫn kín — chỉ thành viên.
+  DECLARE l_cnt NUMBER; l_conv_type VARCHAR2(20); BEGIN
+    SELECT conv_type INTO l_conv_type FROM CHAT_CONVERSATIONS WHERE conv_id=l_conv_id;
     SELECT COUNT(*) INTO l_cnt FROM CHAT_PARTICIPANTS WHERE conv_id=l_conv_id AND aus_id=l_aus_id;
-    IF l_cnt = 0 THEN HTP.p('<div style="padding:16px;color:#DC2626">Không có quyền</div>'); RETURN; END IF;
+    IF l_cnt = 0 THEN
+      IF l_conv_type = 'DOC' THEN
+        INSERT INTO CHAT_PARTICIPANTS (conv_id, aus_id, is_admin) VALUES (l_conv_id, l_aus_id, 0);
+        COMMIT;
+      ELSE
+        HTP.p('<div style="padding:16px;color:#DC2626">Không có quyền</div>'); RETURN;
+      END IF;
+    END IF;
   END;
 
   FOR msg IN (
@@ -492,7 +516,9 @@ BEGIN
       HTP.p('<div class="perm-row"><span class="fa fa-shield"></span><span>'||HTF.ESCAPE_SC(r.name)||'</span></div>');
     END LOOP;
     HTP.p('</div>');
-  ELSE
+  ELSIF l_kind <> 'canhan' THEN
+    -- Cá nhân (DM): KHÔNG hiển thị danh sách thành viên (chỉ có 2 người).
+    -- Chỉ nhóm/chứng từ mới liệt kê thành viên.
     HTP.p('<button class="ip-sec" type="button" onclick="toggleInfoSection(this)"><span class="caret fa fa-chevron-down"></span>Thành viên<span class="ip-count">'||
           l_mem_cnt||'</span></button>');
     HTP.p('<div class="ip-body">');
@@ -590,20 +616,34 @@ END;
 -- ============================================================
 -- 8. msContactsHtml  (people picker cho compose DM/Nhóm)
 --    x01 = search text
+--    data-conv = conv_id của DM ĐÃ tồn tại với người này (rỗng nếu chưa có) —
+--    để picker kiểu Messenger: chọn người đã có hội thoại thì LOAD hội thoại cũ,
+--    chưa có thì mở phòng ảo. (DM = đúng 2 participant gồm mình + người đó.)
 -- ============================================================
 DECLARE
   l_search VARCHAR2(200) := LOWER(TRIM(apex_application.g_x01));
+  l_aus_id NUMBER;
 BEGIN
   OWA_UTIL.MIME_HEADER('text/html', TRUE, 'UTF-8');
+  BEGIN
+    SELECT aus_id INTO l_aus_id FROM APP_USERS WHERE LOWER(user_name) = LOWER(:APP_USER);
+  EXCEPTION WHEN NO_DATA_FOUND THEN l_aus_id := NULL; END;
   FOR p IN (SELECT u.aus_id, REGEXP_REPLACE(NVL(e.full_name,'Unknown'),'[[:cntrl:]]','') nm,
-                   e.position_name, vf.v_file_name img
+                   e.position_name, vf.v_file_name img,
+                   (SELECT c.conv_id FROM CHAT_CONVERSATIONS c
+                      JOIN CHAT_PARTICIPANTS pa ON pa.conv_id=c.conv_id AND pa.aus_id=l_aus_id
+                      JOIN CHAT_PARTICIPANTS pb ON pb.conv_id=c.conv_id AND pb.aus_id=u.aus_id
+                     WHERE c.conv_type='DM'
+                       AND (SELECT COUNT(*) FROM CHAT_PARTICIPANTS p3 WHERE p3.conv_id=c.conv_id)=2
+                     FETCH FIRST 1 ROW ONLY) AS dm_conv
             FROM APP_USERS u JOIN EMPLOYEES e ON e.emp_id = u.emp_id
             LEFT JOIN v_employees_v6 vf ON vf.emp_id = u.emp_id
             WHERE LOWER(u.user_name) != LOWER(:APP_USER)
               AND (l_search IS NULL OR LOWER(e.full_name) LIKE '%'||l_search||'%')
             ORDER BY nm FETCH FIRST 50 ROWS ONLY) LOOP
     HTP.p('<div class="person" data-id="'||p.aus_id||'" data-name="'||HTF.ESCAPE_SC(p.nm)||
-          '" data-hue="'||MOD(p.aus_id*47,360)||'" onclick="togglePerson('||p.aus_id||')">'||
+          '" data-hue="'||MOD(p.aus_id*47,360)||'" data-conv="'||NVL(TO_CHAR(p.dm_conv),'')||
+          '" onclick="togglePerson('||p.aus_id||')">'||
           '<span class="pa" style="background:hsl('||MOD(p.aus_id*47,360)||',55%,52%)">'||UPPER(SUBSTR(p.nm,1,1))||
           CASE WHEN p.img IS NOT NULL THEN
             '<img src="'||HTF.ESCAPE_SC(p.img)||'" alt="" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%" onerror="this.remove()">'
@@ -816,11 +856,17 @@ BEGIN
   END LOOP;
 
   HTP.p('<div class="gs-group">Người</div>');
-  FOR p IN (SELECT u.aus_id, REGEXP_REPLACE(NVL(e.full_name,'Unknown'),'[[:cntrl:]]','') nm
+  FOR p IN (SELECT u.aus_id, REGEXP_REPLACE(NVL(e.full_name,'Unknown'),'[[:cntrl:]]','') nm,
+                   (SELECT c.conv_id FROM CHAT_CONVERSATIONS c
+                      JOIN CHAT_PARTICIPANTS pa ON pa.conv_id=c.conv_id AND pa.aus_id=l_aus_id
+                      JOIN CHAT_PARTICIPANTS pb ON pb.conv_id=c.conv_id AND pb.aus_id=u.aus_id
+                     WHERE c.conv_type='DM'
+                       AND (SELECT COUNT(*) FROM CHAT_PARTICIPANTS p3 WHERE p3.conv_id=c.conv_id)=2
+                     FETCH FIRST 1 ROW ONLY) AS dm_conv
             FROM APP_USERS u JOIN EMPLOYEES e ON e.emp_id=u.emp_id
             WHERE LOWER(e.full_name) LIKE '%'||l_search||'%' AND u.aus_id != l_aus_id
             FETCH FIRST 6 ROWS ONLY) LOOP
-    HTP.p('<div class="gs-item" onclick="gsPickPerson('||p.aus_id||')"><span class="gs-ic fa fa-user"></span>'||
+    HTP.p('<div class="gs-item" onclick="gsPickPerson('||p.aus_id||',&quot;'||HTF.ESCAPE_SC(p.nm)||'&quot;,'||NVL(TO_CHAR(p.dm_conv),'0')||')"><span class="gs-ic fa fa-user"></span>'||
           '<span class="gs-name">'||HTF.ESCAPE_SC(p.nm)||'</span><span class="gs-kind">Cá nhân</span></div>');
   END LOOP;
 EXCEPTION WHEN OTHERS THEN
@@ -970,4 +1016,63 @@ BEGIN
   HTP.p(l_json);
 EXCEPTION WHEN OTHERS THEN
   HTP.p('{"members":[]}');
+END;
+
+
+-- ============================================================
+-- 18. msEnsureDocConv  (find-or-create PHÒNG CHUNG của 1 chứng từ — phục vụ "phòng ảo")
+--    x01 = doc_type | x02 = doc_no
+--    Gọi bởi materializeDraftThenSend() khi gửi tin đầu trong phòng ảo DOC.
+--    Trả {conv_id}. Race-safe: dựa UNIQUE INDEX uq_doc_main (xem schema-additions.sql);
+--    2 người gửi đồng thời → người sau dính DUP_VAL_ON_INDEX → SELECT lại phòng đã có.
+--    Lazy-join người gửi vào CHAT_PARTICIPANTS (đồng bộ chính sách "mở theo chứng từ").
+-- ============================================================
+DECLARE
+  l_aus_id  NUMBER;
+  l_conv_id NUMBER;
+  l_dt      VARCHAR2(30) := TRIM(apex_application.g_x01);
+  l_dn      VARCHAR2(60) := TRIM(apex_application.g_x02);
+  l_cnt     NUMBER;
+BEGIN
+  OWA_UTIL.MIME_HEADER('application/json', TRUE, 'UTF-8');
+  IF :APP_USER IS NULL OR :APP_USER IN ('nobody','NOBODY') THEN HTP.p('{"error":"auth"}'); RETURN; END IF;
+  BEGIN
+    SELECT aus_id INTO l_aus_id FROM APP_USERS WHERE LOWER(user_name) = LOWER(:APP_USER);
+  EXCEPTION WHEN NO_DATA_FOUND THEN HTP.p('{"error":"user_not_found"}'); RETURN; END;
+
+  IF l_dt IS NULL OR l_dn IS NULL THEN HTP.p('{"error":"missing_doc"}'); RETURN; END IF;
+
+  -- Tìm phòng chung của chứng từ (parent_conv_id IS NULL).
+  BEGIN
+    SELECT conv_id INTO l_conv_id FROM CHAT_CONVERSATIONS
+    WHERE conv_type='DOC' AND doc_type=l_dt AND doc_no=l_dn AND parent_conv_id IS NULL
+    FETCH FIRST 1 ROW ONLY;
+  EXCEPTION WHEN NO_DATA_FOUND THEN
+    l_conv_id := NULL;
+  END;
+
+  -- Chưa có → tạo (CONV_SEQ). Tên mặc định = mã chứng từ.
+  IF l_conv_id IS NULL THEN
+    BEGIN
+      l_conv_id := CONV_SEQ.NEXTVAL;
+      INSERT INTO CHAT_CONVERSATIONS (conv_id, conv_type, name, aus_id, doc_type, doc_no)
+      VALUES (l_conv_id, 'DOC', l_dt||'-'||l_dn, l_aus_id, l_dt, l_dn);
+    EXCEPTION WHEN DUP_VAL_ON_INDEX THEN
+      SELECT conv_id INTO l_conv_id FROM CHAT_CONVERSATIONS
+      WHERE conv_type='DOC' AND doc_type=l_dt AND doc_no=l_dn AND parent_conv_id IS NULL
+      FETCH FIRST 1 ROW ONLY;
+    END;
+  END IF;
+
+  -- Lazy-join người gửi (hoặc bỏ ẩn nếu từng ẩn).
+  SELECT COUNT(*) INTO l_cnt FROM CHAT_PARTICIPANTS WHERE conv_id=l_conv_id AND aus_id=l_aus_id;
+  IF l_cnt = 0 THEN
+    INSERT INTO CHAT_PARTICIPANTS (conv_id, aus_id, is_admin) VALUES (l_conv_id, l_aus_id, 0);
+  ELSE
+    UPDATE CHAT_PARTICIPANTS SET is_hidden=0 WHERE conv_id=l_conv_id AND aus_id=l_aus_id;
+  END IF;
+  COMMIT;
+  HTP.p('{"conv_id":'||l_conv_id||'}');
+EXCEPTION WHEN OTHERS THEN
+  ROLLBACK; HTP.p('{"error":"'||REPLACE(SQLERRM,'"','')||'"}');
 END;

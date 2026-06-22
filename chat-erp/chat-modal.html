@@ -21,8 +21,16 @@
           <div class="compose-menu hidden" id="composeMenu" role="menu" aria-label="Soạn mới">
             <button onclick="openPeoplePicker()" type="button"><span class="fa fa-comment-o"></span> Tin nhắn mới</button>
             <button onclick="openCreateGroup()" type="button"><span class="fa fa-group"></span> Nhóm mới</button>
+            <button onclick="openCreateChannel()" type="button"><span class="fa fa-hashtag"></span> Channel mới</button>
           </div>
         </div>
+      </div>
+      <!-- Segmented scope: chỉ hiện khi mở từ nút "Trao đổi" của 1 chứng từ -->
+      <div class="scope-box hidden" id="scopeBox" role="tablist" aria-label="Phạm vi hội thoại">
+        <button class="scope-tab active" type="button" role="tab" data-scope="doc" onclick="setScope('doc')" title="Chỉ hội thoại của chứng từ này">
+          <span class="fa fa-file-o"></span> <span id="scopeDocLabel">Chứng từ này</span>
+        </button>
+        <button class="scope-tab" type="button" role="tab" data-scope="all" onclick="setScope('all')" title="Tất cả hội thoại">Tất cả</button>
       </div>
       <!-- 2 chip lọc dưới ô tìm (CH-03) -->
       <div class="sb-filters">
@@ -88,6 +96,13 @@
         <button class="sb-nav" title="Đóng" aria-label="Đóng tìm kiếm" onclick="closeConvSearch()" type="button"><span class="fa fa-close"></span></button>
       </div>
 
+      <!-- Banner cross-doc: hiện khi đang scope 1 chứng từ mà có tin ở hội thoại ngoài chứng từ đó -->
+      <div class="crossdoc-banner hidden" id="crossdocBanner" role="status">
+        <span class="cd-ic fa fa-bell-o"></span>
+        <span class="cd-text" id="crossdocText"></span>
+        <button class="cd-view" type="button" onclick="viewCrossDoc()">Xem</button>
+        <button class="cd-close icon-btn" type="button" title="Bỏ qua" aria-label="Bỏ qua" onclick="hideCrossDocBanner()"><span class="fa fa-close"></span></button>
+      </div>
       <!-- Nội dung tin do JS render từ CONVERSATIONS (Cụm A) -->
       <div class="messages" id="messages"></div>
       <!-- React bar nổi (chọn emoji rồi mới react) -->

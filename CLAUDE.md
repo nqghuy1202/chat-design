@@ -272,7 +272,7 @@ To update skills: `npx skills check` then `npx skills update`.
 
 ## APEX Production Modules
 
-Ba module Oracle APEX 24.2 nằm trong repo: `doc-chat/` (deprecated) và `messenger/` (production) dùng chung page `10022710201`; `chat-erp/` là thiết kế mới đang phát triển trên page riêng `10022710202`, KHÔNG đụng tới page production. Mỗi module là một thư mục độc lập với cấu trúc giống nhau:
+Ba module Oracle APEX 24.2 nằm trong repo. **`chat-erp/` (page `10022710202`) hiện là module chat PRODUCTION** (cập nhật 2026-06-22, thay cho messenger/). `messenger/` (page `10022710201`) và `doc-chat/` giờ chỉ giữ để **tham khảo lịch sử** — đừng cutover/sửa song song trừ khi được yêu cầu rõ. Mỗi module là một thư mục độc lập với cấu trúc giống nhau:
 
 ```
 <module>/
@@ -356,16 +356,18 @@ Nút 3-chấm trên `.ms-conv-item` (render là `<div role="button">` để trá
 
 **Callbacks hiện tại (19):** render HTML (`msConvListHtml` — nay có thêm tham số scope x03-x06, xem Unified Modal Entry ở trên — `msMsgThreadHtml`, `msInfoHtml`, `msContactsHtml`, `msPinnedListHtml`, `msForwardListHtml`), JSON/action (`msGetCurrentUser`, `msConvHeaderJson`, `msCreateConv`, `msFindDM`, `msGetAvatar`, `msPinConv`, `msHideConv`, `msDeleteConv`, `msToggleReaction`, `msTogglePinMsg`), deprecated relay (`msSendMsg`, `msMarkRead`). Send/read/typing/create/unread-summary đi qua `nodePost`/`nodeGet` (fetch thẳng Node, không qua callback APEX). Nguồn chuẩn: `messenger/docs/callbacks.sql`.
 
-### chat-erp/ — Thiết kế mới, đang phát triển (page riêng, chưa cutover)
+### chat-erp/ — Module chat PRODUCTION (page riêng)
 
-- **Page ID:** `10022710202` (mới hoàn toàn, KHÔNG đụng page production `10022710201` của messenger/)
+- **Page ID:** `10022710202` (production hiện tại; KHÔNG đụng page cũ `10022710201` của messenger/)
 - **Real-time dùng CHUNG Node chat-server với messenger/** (cùng instance) nhưng theo cơ chế khác: mọi đọc/ghi DB vẫn qua Ajax Callback APEX; sau khi callback ghi DB xong, BROWSER (không phải DB qua UTL_HTTP, vì máy DB Oracle thường không route tới Node — ORA-12535) tự gọi `nodePost('/broadcast-message')` để phát SSE, nhận lại qua `apex:chatEvent` giống messenger/.
 - **4 nhóm sidebar** thay vì 3 `conv_type`: `chungtu`/`channel`/`nhom`/`canhan` — suy ra bằng CASE từ `conv_type` + cột mới `is_public` (KHÔNG có cột `kind` riêng): `chungtu`=`DOC`, `channel`=`CHANNEL`+`is_public=1`, `nhom`=`CHANNEL`+`is_public=0`, `canhan`=`DM`.
 - **Nhóm con:** `CHAT_CONVERSATIONS.parent_conv_id` tự tham chiếu, 1 cấp.
 - **Channel theo nhóm quyền:** bảng mới `CHAT_CHANNEL_ROLES(conv_id, gus_id)` join `USER_ROLES`/`GROUP_USERS` có sẵn trong hệ thống — không có dòng nào cho 1 `conv_id` = "Toàn công ty" (công khai).
 - **Upload file thật** qua callback `msUploadFile` (base64 → BLOB → `pkg_upload_file.UploadFileChat`, cùng cơ chế `messenger/`), không qua Node.
+- **Unified Entry (2 cửa vào) + cross-doc awareness:** icon header = tất cả hội thoại; nút "Trao đổi" chứng từ = scoped theo `doc_type+doc_no` qua `sessionStorage['msEntryDoc']`. Banner cross-doc + badge tổng. DM/CHANNEL/nhóm kín; DOC mở theo chứng từ (lazy-join). Xem `chat-erp/CLAUDE.md`.
+- **Hội thoại ảo (virtual room):** mọi luồng tạo (DM/DOC/Nhóm/Channel) chỉ ghi DB khi gửi tin đầu (`openVirtualRoom`/`materializeDraftThenSend`); bỏ đi chưa gửi → không sinh row. Picker DM kiểu Messenger: chọn người đã có DM → load hội thoại cũ, chưa có → phòng ảo.
 - **Quan trọng khi paste HTML vào APEX:** nếu chỉ giữ `#layout` (bỏ khung `.modal`/header demo), phải tự cấp `height` cho `#layout` (CSS gốc lấy height từ `.modal{height:100vh}` đã bỏ) và set giá trị Ngũ Hành mặc định trong `:root` (gốc dựa vào `<html data-element="kim">` không còn tồn tại) — nếu không accent color (`--c-main`/`--accent`) sẽ undefined và toàn bộ nút/badge màu accent biến mất.
-- Chi tiết đầy đủ + checklist deploy 17 Ajax Callback: `chat-erp/CLAUDE.md` + `chat-erp/docs/callbacks.sql` + `chat-erp/docs/schema-additions.sql`.
+- **18 Ajax Callback** (mới nhất #18 `msEnsureDocConv` cho phòng ảo DOC). Chi tiết + checklist deploy: `chat-erp/CLAUDE.md` + `chat-erp/docs/callbacks.sql` + `chat-erp/docs/schema-additions.sql` (DDL gồm `uq_doc_main` — chạy TRƯỚC callback). User stories kiểm thử: `chat-erp/docs/user-stories.md` + `chat-erp/docs/virtual-room-stories.md`.
 
 ### Chat Server — Node.js real-time relay (repo riêng, sửa được)
 
