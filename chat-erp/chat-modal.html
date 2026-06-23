@@ -17,12 +17,7 @@
       <div class="sb-top">
         <div class="sb-search"><span class="fa fa-search"></span> <input id="sbSearch" placeholder="Lọc nhanh tên / mã…" oninput="filterSidebar()"></div>
         <div class="compose-wrap">
-          <button class="compose-btn" aria-haspopup="menu" aria-expanded="false" title="Soạn mới (⌘N)" aria-label="Soạn mới" onclick="toggleComposeMenu(event)" type="button"><span class="fa fa-pencil-square-o"></span></button>
-          <div class="compose-menu hidden" id="composeMenu" role="menu" aria-label="Soạn mới">
-            <button onclick="openPeoplePicker()" type="button"><span class="fa fa-comment-o"></span> Tin nhắn mới</button>
-            <button onclick="openCreateGroup()" type="button"><span class="fa fa-group"></span> Nhóm mới</button>
-            <button onclick="openCreateChannel()" type="button"><span class="fa fa-hashtag"></span> Channel mới</button>
-          </div>
+          <button class="compose-btn" title="Tin nhắn mới (⌘N)" aria-label="Tin nhắn mới" onclick="startNewConversation()" type="button"><span class="fa fa-pencil-square-o"></span></button>
         </div>
       </div>
       <!-- Segmented scope: chỉ hiện khi mở từ nút "Trao đổi" của 1 chứng từ -->
@@ -80,10 +75,26 @@
         <div class="more-menu hidden" id="moreMenu" role="menu" aria-label="Tùy chọn hội thoại">
           <div class="mm-item" id="mmOpenDoc" role="menuitem" onclick="openDocFromMenu()"><span class="mm-ic fa fa-file-o"></span> Mở chứng từ</div>
           <div class="mm-divider" id="mmOpenDocSep"></div>
+          <div class="mm-item" id="mmRename" role="menuitem" onclick="renameConvFromMenu()"><span class="mm-ic fa fa-pencil"></span> Đổi tên</div>
           <div class="mm-item" role="menuitem" onclick="openCreateSubgroup()"><span class="mm-ic fa fa-plus"></span> Tạo nhóm con</div>
           <div class="mm-item" role="menuitem" onclick="pinConv()"><span class="mm-ic fa fa-bookmark"></span> Ghim cuộc hội thoại</div>
           <div class="mm-item danger" role="menuitem" onclick="deleteConv()"><span class="mm-ic fa fa-trash-o"></span> Xóa cuộc hội thoại</div>
         </div>
+      </div>
+      <!-- Thanh "Tới:" cho hội thoại mới — input + datalist (kiểu Messenger) -->
+      <div class="newconv-bar hidden" id="newConvBar">
+        <div class="ncb-row">
+          <span class="lbl">Tới:</span>
+          <span id="ncChips"></span>
+          <input id="ncInput" placeholder="gõ tên hoặc mã nhân viên…" autocomplete="off"
+            oninput="ncInputChange(this)" onkeydown="ncInputKey(event)" onfocus="ncOpenList()"
+            role="combobox" aria-expanded="false" aria-controls="ncList" aria-autocomplete="list" aria-label="Người nhận">
+          <span class="grow"></span>
+          <button class="btn" onclick="openCreateChannel()" title="Tạo kênh công khai theo nhóm quyền" type="button"><span class="fa fa-hashtag"></span> Channel</button>
+          <button class="icon-btn" onclick="cancelNewConv()" title="Hủy soạn mới" aria-label="Hủy" type="button"><span class="fa fa-close"></span></button>
+        </div>
+        <!-- Dropdown danh sách nhân viên (avatar · tên · mã · chức danh · online) -->
+        <div class="nc-list hidden" id="ncList" role="listbox" aria-label="Danh sách nhân viên"></div>
       </div>
       <!-- Thanh tìm trong hội thoại (P1) -->
       <div class="search-bar hidden" id="convSearch" role="search">
@@ -138,6 +149,7 @@
       <!-- ===== Compose inline (Tin nhắn mới) ===== -->
       <div class="compose-pane hidden" id="composePicker" role="region" aria-label="Tin nhắn mới">
         <div class="compose-head"><span class="ct">Tin nhắn mới</span><span style="flex:1"></span>
+          <button class="btn" onclick="openCreateChannel()" title="Tạo kênh công khai theo nhóm quyền" type="button"><span class="fa fa-hashtag"></span> Channel mới</button>
           <button class="icon-btn" onclick="closeCompose()" title="Đóng" type="button"><span class="fa fa-close"></span></button></div>
         <div class="compose-body">
           <div class="to-field">

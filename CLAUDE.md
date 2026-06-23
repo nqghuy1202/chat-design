@@ -6,12 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A **UI design prototyping workspace** for a Zalo-style fullscreen modal chat interface embedded in a multi-module ERP system (accounting, HR, production, management). B2B SaaS product. The primary deliverable is `index.html` — a self-contained, browser-runnable demo. The eventual production target is React + Tailwind CSS.
 
-Three APEX modules exist alongside the prototypes — see **APEX Production Modules** below. `messenger/` is the **production** chat modal (doc-chat deprecated); architecture/UX decisions for its unified entry + cross-doc awareness are in `docs/unified-chat-architecture.md`. The `DOC` conv_type (hội thoại theo chứng từ) is detailed in `messenger/CLAUDE.md` under "conv_type = 'DOC'". `chat-erp/` is a **separate, in-development** redesign (own APEX page, no production cutover yet) — see its own `chat-erp/CLAUDE.md`.
+Three APEX modules exist alongside the prototypes — see **APEX Production Modules** below. **`chat-erp/` (page `10022710202`) is the current PRODUCTION chat modal as of 2026-06-22.** `messenger/` (page `10022710201`) and `doc-chat/` are kept for **historical reference only** — don't cut over or edit them in parallel unless explicitly asked. Architecture/UX for unified entry + cross-doc awareness is in `docs/unified-chat-architecture.md`; the `DOC` conv_type (hội thoại theo chứng từ) is detailed per-module in `messenger/CLAUDE.md` and `chat-erp/CLAUDE.md`.
 
 ## Viewing the Demo
 
 ```powershell
-Start-Process "D:\chat-design\index.html"   # PowerShell
+Start-Process "C:\chat-design\index.html"   # PowerShell
 start index.html                             # Git Bash / cmd
 ```
 
@@ -381,6 +381,12 @@ Nguồn tại `C:\greensys\chat-server` (sibling repo, KHÔNG nằm trong `C:\ch
 - Route mới `GET /unread-summary/:aus_id` → `{total, by_conv, by_doc}`.
 
 Deploy thay đổi: `npm run test:connection` rồi `pm2 restart chat-server` trên Server B. Xem `docs/unified-chat-architecture.md` để biết spec đầy đủ.
+
+### Real-time RECEIVE bridge — sống ở APP CHA (1503), KHÔNG ở module chat
+
+Đây là điểm gây nhầm nhất (cả buổi debug). Module chat (`chat-erp/`, `messenger/`) chỉ **GỬI** broadcast (browser `nodePost('/broadcast-message')` sau khi callback ghi DB) và **NGHE** custom event `apex:chatEvent`. Chúng **KHÔNG tự mở kết nối SSE** — Node `/api/sse` khóa origin (`SSE_ORIGIN = erp.greensys.vn:8211`) + cần token HMAC. Bên mở/giữ SSE là **app cha 1503**, qua bộ **chat-system** tại `C:\greensys\chat-system` (sibling repo): `global.js` (chạy ở top window, `if(window.parent!==window) return`) + `sse-worker.js` (SharedWorker, 1 SSE/origin) + 5 Application Process Page-0 (`sseToken`, `getUrlNodeJs`, `loadAppConfig`, `chatHeartbeat`, `notificationCount`) + item `P0_AUS_ID`. `global.js` nhận SSE → `$(document).trigger('apex:chatEvent', [data])` trên parent.document; iframe chat bind qua `_parentWin.apex.jQuery`.
+
+**Hệ quả khi debug "không real-time":** sender broadcast vẫn báo OK (gọi Node trực tiếp) — đánh lừa. Lỗi gần như luôn ở receive: app cha chưa nạp `global.js`, `window.APP_FILES` chưa set (→ `sse-worker.js` 404), `P0_AUS_ID` rỗng, hoặc trùng tên file `global.js` có sẵn của app. Test Node độc lập: `node test-sse.js <aus_id>` trong `chat-server` (mint token từ `.env`, in mọi event) — nếu test này nhận được tin mà browser không, lỗi 100% ở bridge phía app cha. Pitfalls đầy đủ (APP_FILES, SharedWorker 1-token/origin, Brave chặn cross-origin SSE) ở `chat-erp/CLAUDE.md` mục "Pitfalls".
 
 ### APEX-specific Rules (áp dụng cho cả ba module)
 

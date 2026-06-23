@@ -25,6 +25,7 @@
 --  14. msGlobalSearchHtml — tìm toàn cục ⌘K (HTML)
 --  15. msRoleOptionsHtml  — option nhóm quyền thật từ GROUP_USERS (HTML)
 --  16. msUploadFile       — upload file thật (base64 → BLOB → FILES), JSON enrich
+--  19. msRenameConv       — đổi tên hội thoại (JSON {ok:true}) — chỉ participant mới đổi được
 -- ============================================================
 
 
@@ -79,6 +80,38 @@ DECLARE
   l_scope   VARCHAR2(10)  := NVL(LOWER(TRIM(apex_application.g_x04)), 'all');
   l_dt      VARCHAR2(30)  := TRIM(apex_application.g_x05);
   l_dn      VARCHAR2(60)  := TRIM(apex_application.g_x06);
+
+  -- Avatar nhóm kiểu Zalo: ghép tối đa 2 avatar thành viên (ảnh thật + fallback chữ
+  -- cái). Ưu tiên thành viên KHÁC mình trước để thấy người trong nhóm. Rỗng → "N".
+  FUNCTION grp_avatar(p_conv_id NUMBER) RETURN VARCHAR2 IS
+    l_html VARCHAR2(4000) := '';
+    l_i    NUMBER := 0;
+  BEGIN
+    FOR mem IN (
+      SELECT nm, img, aus_id FROM (
+        SELECT REGEXP_REPLACE(NVL(e.full_name,'?'),'[[:cntrl:]]','') nm,
+               vf.v_file_name img, u.aus_id,
+               ROW_NUMBER() OVER (ORDER BY CASE WHEN u.aus_id = l_aus_id THEN 1 ELSE 0 END, p.aus_id) rn
+        FROM CHAT_PARTICIPANTS p
+        JOIN APP_USERS u ON u.aus_id = p.aus_id
+        JOIN EMPLOYEES e ON e.emp_id = u.emp_id
+        LEFT JOIN v_employees_v6 vf ON vf.emp_id = u.emp_id
+        WHERE p.conv_id = p_conv_id
+      ) WHERE rn <= 2
+    ) LOOP
+      l_i := l_i + 1;
+      l_html := l_html ||
+        '<span class="a a'||l_i||'" style="background:hsl('||MOD(mem.aus_id*47,360)||',55%,52%)">'||
+        UPPER(SUBSTR(mem.nm,1,1))||
+        CASE WHEN mem.img IS NOT NULL THEN
+          '<img src="'||HTF.ESCAPE_SC(mem.img)||'" alt="" onerror="this.remove()">'
+        END||'</span>';
+    END LOOP;
+    IF l_i = 0 THEN
+      l_html := '<span class="a a1" style="background:#7C3AED">N</span>';
+    END IF;
+    RETURN '<span class="grp-av">'||l_html||'</span>';
+  END grp_avatar;
 BEGIN
   OWA_UTIL.MIME_HEADER('text/html', TRUE, 'UTF-8');
   IF :APP_USER IS NULL OR :APP_USER IN ('nobody','NOBODY') THEN
@@ -173,9 +206,14 @@ BEGIN
                       '<img src="'||HTF.ESCAPE_SC(conv.partner_img)||'" alt="" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%" onerror="this.remove()">'
                     END||'</span>');
             ELSIF conv.parent_conv_id IS NOT NULL THEN
-              HTP.p('<span class="sg-arrow">↳</span><span class="grp-av"><span class="a a1" style="background:#0EA5E9">N</span></span>');
+              -- Nhóm con: mũi tên + avatar ghép thành viên
+              HTP.p('<span class="sg-arrow">↳</span>'||grp_avatar(conv.conv_id));
+            ELSIF conv.kind = 'channel' THEN
+              -- Channel (công khai, có thể rất đông) → giữ icon #
+              HTP.p('<span class="grp-av"><span class="a a1" style="background:var(--accent)">#</span></span>');
             ELSE
-              HTP.p('<span class="grp-av"><span class="a a1" style="background:#7C3AED">N</span></span>');
+              -- Nhóm riêng tư → avatar ghép thành viên (kiểu Zalo)
+              HTP.p(grp_avatar(conv.conv_id));
             END IF;
             HTP.p('<div class="conv-main"><div class="conv-top"><span class="name">'||HTF.ESCAPE_SC(conv.display_name)||'</span><span class="conv-time">'||conv.display_time||'</span></div>');
             HTP.p('<div class="conv-prev"><span class="cp-text">'||HTF.ESCAPE_SC(NVL(conv.last_msg_preview,''))||'</span>'||
@@ -629,20 +667,34 @@ BEGIN
     SELECT aus_id INTO l_aus_id FROM APP_USERS WHERE LOWER(user_name) = LOWER(:APP_USER);
   EXCEPTION WHEN NO_DATA_FOUND THEN l_aus_id := NULL; END;
   FOR p IN (SELECT u.aus_id, REGEXP_REPLACE(NVL(e.full_name,'Unknown'),'[[:cntrl:]]','') nm,
-                   e.position_name, vf.v_file_name img,
+                   e.position_name,
+                   -- "Mã nhân viên": hiện dùng emp_id. Nếu schema có cột mã người-đọc-được
+                   -- (vd e.emp_code = 'NV001') thì đổi token dưới đây sang cột đó.
+                   TO_CHAR(e.emp_id) AS emp_code,
+                   vf.v_file_name img,
                    (SELECT c.conv_id FROM CHAT_CONVERSATIONS c
                       JOIN CHAT_PARTICIPANTS pa ON pa.conv_id=c.conv_id AND pa.aus_id=l_aus_id
                       JOIN CHAT_PARTICIPANTS pb ON pb.conv_id=c.conv_id AND pb.aus_id=u.aus_id
                      WHERE c.conv_type='DM'
                        AND (SELECT COUNT(*) FROM CHAT_PARTICIPANTS p3 WHERE p3.conv_id=c.conv_id)=2
-                     FETCH FIRST 1 ROW ONLY) AS dm_conv
+                     FETCH FIRST 1 ROW ONLY) AS dm_conv,
+                   NVL((SELECT CASE WHEN o.last_seen >= (SYSDATE - 35/86400) THEN 1 ELSE 0 END
+                          FROM CHAT_USER_ONLINE o WHERE o.aus_id = u.aus_id), 0) AS is_online
             FROM APP_USERS u JOIN EMPLOYEES e ON e.emp_id = u.emp_id
             LEFT JOIN v_employees_v6 vf ON vf.emp_id = u.emp_id
             WHERE LOWER(u.user_name) != LOWER(:APP_USER)
-              AND (l_search IS NULL OR LOWER(e.full_name) LIKE '%'||l_search||'%')
+              AND (l_search IS NULL
+                   OR LOWER(e.full_name) LIKE '%'||l_search||'%'
+                   OR LOWER(TO_CHAR(e.emp_id)) LIKE '%'||l_search||'%')
             ORDER BY nm FETCH FIRST 50 ROWS ONLY) LOOP
+    -- data-code/data-pos/data-online: client (#newConvBar) dựng lại dòng giàu thông tin
+    -- (avatar + tên + mã + chức danh + chấm online). Cấu trúc .person/.pa/.pinfo giữ
+    -- nguyên để picker cũ (nếu còn dùng) không vỡ.
     HTP.p('<div class="person" data-id="'||p.aus_id||'" data-name="'||HTF.ESCAPE_SC(p.nm)||
           '" data-hue="'||MOD(p.aus_id*47,360)||'" data-conv="'||NVL(TO_CHAR(p.dm_conv),'')||
+          '" data-code="'||HTF.ESCAPE_SC(NVL(p.emp_code,''))||
+          '" data-pos="'||HTF.ESCAPE_SC(NVL(p.position_name,''))||
+          '" data-online="'||p.is_online||
           '" onclick="togglePerson('||p.aus_id||')">'||
           '<span class="pa" style="background:hsl('||MOD(p.aus_id*47,360)||',55%,52%)">'||UPPER(SUBSTR(p.nm,1,1))||
           CASE WHEN p.img IS NOT NULL THEN
@@ -812,6 +864,36 @@ BEGIN
     WHEN 'delete' THEN DELETE FROM CHAT_PARTICIPANTS WHERE conv_id=l_conv_id AND aus_id=l_aus_id;
     ELSE NULL;
   END CASE;
+  COMMIT;
+  HTP.p('{"ok":true}');
+EXCEPTION WHEN OTHERS THEN
+  ROLLBACK; HTP.p('{"error":"'||REPLACE(SQLERRM,'"','')||'"}');
+END;
+
+
+-- ============================================================
+-- 19. msRenameConv  (đổi tên hội thoại — menu "Thêm" → "Đổi tên")
+--    x01 = conv_id | x02 = tên mới (đã trim ở client)
+--    Chỉ participant của hội thoại mới đổi được tên.
+-- ============================================================
+DECLARE
+  l_aus_id  NUMBER;
+  l_conv_id NUMBER := TO_NUMBER(apex_application.g_x01);
+  l_name    VARCHAR2(200) := REGEXP_REPLACE(TRIM(apex_application.g_x02),'[[:cntrl:]]','');
+  l_cnt     NUMBER;
+BEGIN
+  OWA_UTIL.MIME_HEADER('application/json', TRUE, 'UTF-8');
+  IF :APP_USER IS NULL OR :APP_USER IN ('nobody','NOBODY') THEN HTP.p('{"error":"auth"}'); RETURN; END IF;
+  BEGIN
+    SELECT aus_id INTO l_aus_id FROM APP_USERS WHERE LOWER(user_name) = LOWER(:APP_USER);
+  EXCEPTION WHEN NO_DATA_FOUND THEN HTP.p('{"error":"user_not_found"}'); RETURN; END;
+
+  IF l_name IS NULL THEN HTP.p('{"error":"empty_name"}'); RETURN; END IF;
+
+  SELECT COUNT(*) INTO l_cnt FROM CHAT_PARTICIPANTS WHERE conv_id=l_conv_id AND aus_id=l_aus_id;
+  IF l_cnt = 0 THEN HTP.p('{"error":"not_participant"}'); RETURN; END IF;
+
+  UPDATE CHAT_CONVERSATIONS SET name = l_name WHERE conv_id = l_conv_id;
   COMMIT;
   HTP.p('{"ok":true}');
 EXCEPTION WHEN OTHERS THEN
